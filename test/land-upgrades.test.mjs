@@ -95,7 +95,7 @@ test('one breaking upgrade is isolated, fixed, landed with its fix, and the rest
     w.log.filter(([what]) => what === 'check').map(([, which, outcome]) => `${which}:${outcome}`),
     ['a,b,c,d,e,f,g,h:fail', 'a,b,c,d:pass', 'e,f,g,h:fail', 'e,f:fail', 'e:pass', 'f:fail', 'f:fail', 'a,b,c,d,e,g,h:pass'],
   );
-  assert.deepEqual(w.speeds, ['full', 'quick', 'quick', 'quick', 'quick', 'quick', 'full', 'full']);
+  assert.deepEqual(w.speeds, ['quick', 'quick', 'quick', 'quick', 'quick', 'quick', 'full', 'quick'], 'only the confirming check is a full one');
 });
 
 test('an upgrade the agent cannot fix is blocked and discarded, never landed', async () => {

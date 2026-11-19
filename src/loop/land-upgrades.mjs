@@ -9,12 +9,12 @@
 //      app checks out again, land the upgrade with the fix; if not, block it.
 //   6. Take it out of the remaining set and go back to 1.
 //
-// Checks come in two speeds. A full check lets Kane CLI heal a recorded step
-// that no longer matches the page before calling it a failure; it is the only
-// kind allowed to blame or clear an upgrade. A quick check stops at the first
-// mismatch. The search in step 3 uses quick checks, which is why step 4
-// exists: a quick failure can be a harmless change in the page, and only a
-// full check can tell.
+// Checks come in two speeds. A quick check replays the recorded steps and
+// stops at the first mismatch. A full check lets Kane CLI heal a step that no
+// longer matches the page before calling it a failure. A pass means the same
+// at either speed. A quick failure does not: it can be a harmless change in
+// the page. So steps 1 and 3 use quick checks, and step 4 is always a full
+// one: nothing is blamed, handed to the agent or held back on a quick failure.
 //
 // This module only decides. Applying versions, running Kane CLI, calling the
 // agent and committing are passed in, so the decisions can be tested alone.
@@ -69,7 +69,7 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
   const runCheck = async (subset, purpose) => {
     checks += 1;
     onEvent({ type: 'check_start', units: idsOf(subset), purpose });
-    const verdict = await check(subset, purpose === 'isolate' ? 'quick' : 'full');
+    const verdict = await check(subset, purpose === 'confirm' ? 'full' : 'quick');
     onEvent({ type: 'check_end', units: idsOf(subset), purpose, verdict });
     if (verdict.outcome === 'error') throw new CheckUnavailable(verdict);
     if (verdict.outcome !== 'pass' && verdict.outcome !== 'fail') {
@@ -100,18 +100,15 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
     );
 
     const culprit = search.minimal;
-    let culpritVerdict = together;
-    if (culprit.length < remaining.length) {
-      // The search narrowed it down with quick checks. Blame needs a full one.
-      culpritVerdict = await runCheck(culprit, 'confirm');
-      if (culpritVerdict.outcome === 'pass') {
-        await land(culprit, culpritVerdict);
-        landed.push({ units: culprit, verdict: culpritVerdict, fixed: false });
-        onEvent({ type: 'landed', units: idsOf(culprit), fixed: false, cleared: true });
-        const cleared = new Set(culprit);
-        remaining = remaining.filter((unit) => !cleared.has(unit));
-        continue;
-      }
+    // Everything so far was a quick check. Blame needs a full one.
+    const culpritVerdict = await runCheck(culprit, 'confirm');
+    if (culpritVerdict.outcome === 'pass') {
+      await land(culprit, culpritVerdict);
+      landed.push({ units: culprit, verdict: culpritVerdict, fixed: false });
+      onEvent({ type: 'landed', units: idsOf(culprit), fixed: false, cleared: true });
+      const cleared = new Set(culprit);
+      remaining = remaining.filter((unit) => !cleared.has(unit));
+      continue;
     }
     onEvent({
       type: 'culprit',
