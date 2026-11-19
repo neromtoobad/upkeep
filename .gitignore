@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Upkeep's own working state when it runs on this repo
+.upkeep/
+
+# Kane CLI local state (evidence we publish is copied into evidence/)
+.testmuai/
+
+# our own judge self-check, never published
+JUDGE-SELF.md

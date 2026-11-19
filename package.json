@@ -1,0 +1,37 @@
+{
+  "name": "upkeep-cli",
+  "version": "0.1.0",
+  "description": "Updates your outdated packages and proves in a real browser, with Kane CLI, that the app still works.",
+  "type": "module",
+  "bin": {
+    "upkeep": "bin/upkeep.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "kane-cli",
+    "dependencies",
+    "upgrade",
+    "delta-debugging",
+    "e2e",
+    "coding-agent"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@testmuai/kane-cli": ">=0.10.0"
+  },
+  "peerDependenciesMeta": {
+    "@testmuai/kane-cli": {
+      "optional": true
+    }
+  }
+}
