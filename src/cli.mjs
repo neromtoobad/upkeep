@@ -121,7 +121,8 @@ export async function main(argv, io = {}) {
     };
     const maxChecks = count('max-checks');
     const rounds = count('rounds');
-    const fix = flags.agent ? makeFixer({ agent: resolveAgent(flags.agent), maxRounds: rounds, readFailure }) : undefined;
+    const agent = flags.agent ? resolveAgent(flags.agent) : null;
+    const fix = agent ? makeFixer({ agent, maxRounds: rounds, readFailure }) : undefined;
     try {
       const result = await upgradeRun({
         projectDir: resolve(flags.cwd ?? '.'),
@@ -131,6 +132,7 @@ export async function main(argv, io = {}) {
           exclude: list(flags.exclude),
           keepWorktree: Boolean(flags['keep-worktree']),
           maxChecksPerSearch: maxChecks,
+          agentName: agent?.name,
         },
         say: (line) => out(`${line}\n`),
         fix,

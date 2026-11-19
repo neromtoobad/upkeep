@@ -11,6 +11,7 @@ import { stagedCheck } from '../check/staged-check.mjs';
 import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
 import { kaneStatus, readCredits } from '../kane/run-suite.mjs';
 import { runCommand } from '../check/run-command.mjs';
+import { renderReport } from '../report/write-report.mjs';
 
 const exists = (path) => access(path).then(() => true, () => false);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -203,7 +204,9 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const creditsAfter = await readCredits();
     result.credits = creditsBefore !== null && creditsAfter !== null ? Number((creditsBefore - creditsAfter).toFixed(2)) : null;
     result.seconds = Math.round((Date.now() - started) / 1000);
-    await writeFile(join(runDir, 'run.json'), `${JSON.stringify({ project: plan.project, branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) }, null, 2)}\n`);
+    const runRecord = { project: plan.project, branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
+    await writeFile(join(runDir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
+    await writeFile(join(runDir, 'report.md'), renderReport(runRecord, ledger, { agentName: options.agentName }));
     if (!options.keepWorktree) await work.remove();
   }
 
@@ -212,7 +215,8 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   say(`Done in ${Math.round(result.seconds / 60)} min, ${plural(result.checks, 'check')}${result.credits !== null ? `, ${result.credits} Kane credits` : ''}.`);
   say(`  ${plural(landedCount, 'package')} upgraded and verified on branch ${work.branch}`);
   if (blockedCount > 0) say(`  ${plural(blockedCount, 'package')} held back: ${result.blocked.map((entry) => entry.units.map((unit) => unit.id).join(' + ')).join(', ')}`);
-  say(`  notes and Kane evidence: ${runDir}`);
+  say(`  report: ${join(runDir, 'report.md')}`);
+  say(`  Kane evidence for every check: ${join(runDir, 'evidence')}`);
   if (landedCount > 0) say(`  to take the upgrades: git merge ${work.branch}`);
   return result;
 }
