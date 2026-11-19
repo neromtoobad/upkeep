@@ -25,10 +25,10 @@ fine and pass type checks. `date-fns` 2 renamed its format tokens, so `format(da
 still compiles and throws when the page renders. Nothing in a normal pipeline opens the order
 page. So upgrade pull requests pile up unmerged, or get merged on faith.
 
-Coding agents make this worse in a new way: an agent will happily bump twelve packages and say
-"done", having opened nothing.
+Coding agents make this worse in a new way: an agent bumps twelve packages and says "done",
+having opened nothing.
 
-## What Upkeep does
+## How it works
 
 ```
 npm outdated ──► plan ──► worktree on a new branch
@@ -95,7 +95,7 @@ With a Kane account (`kane-cli login --oauth`) and Claude Code installed, see [R
 | **Closed loop.** "Kane's result feeds back to the agent. Tighter is better." | Kane's verdict decides three things with no person involved: which set of upgrades to try next (the search), what the agent is told, and whether the result is committed or thrown away. |
 | **Craft.** "Would a developer want to install this tonight?" | No dependencies, no config for Vite, Next and Astro, a credit budget, quick checks while searching, a guard against an agent that edits the tests, a report you can paste into a pull request. |
 
-## What Kane CLI does here
+## Sponsor integration: what Kane CLI does here
 
 Kane is the only judge. Upkeep never looks at the page itself.
 
@@ -201,6 +201,9 @@ cd /path/to/your/app
 node /path/to/upkeep/bin/upkeep.mjs plan
 node /path/to/upkeep/bin/upkeep.mjs run --agent claude
 ```
+
+There is nothing to configure: no environment file, no keys of Upkeep's own. It uses the Kane
+CLI sign-in you already have.
 
 Your app needs at least one Kane flow: a `flows/<name>_test.md` with `url: http://localhost:<port>`
 in its header and the journey in plain English. Upkeep serves the app at that address itself, so
