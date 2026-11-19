@@ -7,6 +7,10 @@
 
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Upkeep's own command, for serving a built folder (see check/static-server.mjs).
+const SELF = `"${process.execPath}" "${fileURLToPath(new URL('../../bin/upkeep.mjs', import.meta.url))}"`;
 
 const FLOW_FOLDERS = ['flows', 'tests', 'e2e', 'test', '.testmuai/tests'];
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.upkeep', 'coverage']);
@@ -59,6 +63,8 @@ export function detectCommands(pkg, port) {
   if (deps.next && build) return { build, serve: `npx next start -p ${port}` };
   if (deps.astro && build) return { build, serve: `npx astro preview --port ${port}` };
   if (deps.vite) return { build: null, serve: `npx vite --port ${port} --strictPort` };
+  // Create React App builds into build/ and has no preview command: serve that folder ourselves.
+  if (deps['react-scripts'] && build) return { build, serve: `${SELF} static build --port ${port}` };
   // Anything else: the project's own start or dev script, told the port the usual way.
   if (scripts.start) return { build, serve: 'npm start' };
   if (scripts.dev) return { build: null, serve: 'npm run dev' };

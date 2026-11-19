@@ -22,6 +22,9 @@ Usage
   upkeep wait               With --agent handoff: block until the run has a task for you, or is over
   upkeep continue           With --agent handoff: you have edited the app; have Kane walk it again
   upkeep mcp                Serve Upkeep as tools over the Model Context Protocol (stdio)
+  upkeep static <dir> --port <n>
+                            Serve a built folder on this machine only (what Upkeep uses for
+                            apps with a build but no preview command, such as Create React App)
   upkeep report <run>       Print the report of a finished run again, from its ledger (--html for the page)
   upkeep export <run> --out <dir>
                             Copy a run (under .upkeep/runs/) without account details, to publish it
@@ -60,7 +63,7 @@ Options for run
 /** Thrown for mistakes in how the command was typed. */
 export class UsageError extends Error {}
 
-const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget', '--out', '--timeout', '--message']);
+const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget', '--out', '--timeout', '--message', '--port']);
 const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr', '--html']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
@@ -120,6 +123,15 @@ export async function main(argv, io = {}) {
     out(HELP);
     return 0;
   }
+  if (command === 'static') {
+    const port = Number(flags.port);
+    if (rest.length !== 1 || !Number.isInteger(port) || port < 1 || port > 65535) throw new UsageError('static needs a folder and --port <number>');
+    const { serveStatic } = await import('./check/static-server.mjs');
+    await serveStatic(resolve(flags.cwd ?? '.', rest[0]), port);
+    out(`Serving ${resolve(flags.cwd ?? '.', rest[0])} at http://localhost:${port}\n`);
+    await new Promise(() => {}); // until stopped
+  }
+
   if (command === 'mcp') {
     const { serve } = await import('./mcp/server.mjs');
     await serve({ cwd: resolve(flags.cwd ?? '.') });
