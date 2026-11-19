@@ -143,6 +143,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack | `src/kane/read-evidence.mjs:87` | `test/read-evidence.test.mjs` |
 | After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:90` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-1500-fixed-by-agent/report.md` |
 | An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane | `src/agent/handoff.mjs:54` | `test/handoff.test.mjs` |
+| `upkeep mcp` serves the same loop as tools over the Model Context Protocol, with no dependencies | `src/mcp/server.mjs:142` | `test/mcp-server.test.mjs`, including a real server process on stdio |
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
@@ -164,6 +165,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
 | The "flow verifies nothing" stop | Tested with a stand-in for Kane's verdict. Real packs so far all had checks, so it has **not fired on a real run** | `test/upgrade-run.test.mjs` |
 | Handoff mode (`--agent handoff`, `upkeep wait`, `upkeep continue`) | Tested through the real commands with a stand-in for the run. **Not yet used on a real run** | `test/handoff.test.mjs` |
+| The MCP server (`upkeep mcp`) | Tested by speaking JSON-RPC to the real server process. **Not yet connected to a real MCP client** | `test/mcp-server.test.mjs` |
 | The Codex CLI preset (`--agent codex`) | Written from the Codex documentation. **Not run by us**: Codex is not installed here | `src/agent/ask-agent.mjs` |
 
 ## Not built yet
@@ -218,6 +220,14 @@ Exit codes: `0` everything behind was upgraded, `3` some upgrades were held back
 still good), `4` the check could not run, `1` the app did not pass its flows before any upgrade.
 
 An agent skill that teaches a coding agent to use Upkeep is in [`skills/upkeep/`](skills/upkeep/SKILL.md).
+
+For agents that take tools over the Model Context Protocol (Cursor, Windsurf, Kiro, Claude Code),
+`upkeep mcp` serves the loop as four tools: `upkeep_plan`, `upkeep_start`, `upkeep_wait` and
+`upkeep_continue`.
+
+```json
+{ "mcpServers": { "upkeep": { "command": "node", "args": ["/path/to/upkeep/bin/upkeep.mjs", "mcp"] } } }
+```
 
 ## Built at the event
 

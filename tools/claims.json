@@ -78,6 +78,12 @@
     "check": "`test/handoff.test.mjs`"
   },
   {
+    "claim": "`upkeep mcp` serves the same loop as tools over the Model Context Protocol, with no dependencies",
+    "file": "src/mcp/server.mjs",
+    "find": "export async function answer",
+    "check": "`test/mcp-server.test.mjs`, including a real server process on stdio"
+  },
+  {
     "claim": "An agent that edits the flows, the recordings or the versions instead of the app has that undone",
     "file": "src/agent/guard-patch.mjs",
     "find": "export async function inspectPatch",

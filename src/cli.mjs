@@ -20,6 +20,7 @@ Usage
   upkeep run [options]      Upgrade them on a new branch, keeping only what Kane CLI verifies
   upkeep wait               With --agent handoff: block until the run has a task for you, or is over
   upkeep continue           With --agent handoff: you have edited the app; have Kane walk it again
+  upkeep mcp                Serve Upkeep as tools over the Model Context Protocol (stdio)
   upkeep report <run>       Print the report of a finished run again, from its ledger (--html for the page)
   upkeep export <run> --out <dir>
                             Copy a run (under .upkeep/runs/) without account details, to publish it
@@ -118,6 +119,12 @@ export async function main(argv, io = {}) {
     out(HELP);
     return 0;
   }
+  if (command === 'mcp') {
+    const { serve } = await import('./mcp/server.mjs');
+    await serve({ cwd: resolve(flags.cwd ?? '.') });
+    return 0;
+  }
+
   if (command === 'wait') {
     if (rest.length > 0) throw new UsageError(`unexpected argument "${rest[0]}"`);
     const seconds = flags.timeout === undefined ? 540 : Number(flags.timeout);

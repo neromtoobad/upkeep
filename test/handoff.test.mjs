@@ -64,6 +64,24 @@ test('each round is its own task; a stale continue from the round before does no
   }
 });
 
+test('a task that was continued is never handed out again, even before the run notices', async () => {
+  const { dir, cleanup } = await fresh();
+  try {
+    await openHandoff(dir);
+    // A slow run: it will not look for the continue signal for a while.
+    const answer = makeHandoffAsk({ dir, pollMs: 300 })({ prompt: 'task', cwd: '/w' });
+    await waitForTurn(dir, { pollMs: 10 });
+    await continueRun(dir, 'done');
+    // Asked again at once, wait must not return the same task.
+    const next = await waitForTurn(dir, { pollMs: 10, timeoutMs: 100 });
+    assert.equal(next.status, 'working');
+    await assert.rejects(continueRun(dir, 'again'), /already continued/);
+    await answer;
+  } finally {
+    await cleanup();
+  }
+});
+
 test('nobody continues: the round ends as "did not answer", not as a fix', async () => {
   const { dir, cleanup } = await fresh();
   try {

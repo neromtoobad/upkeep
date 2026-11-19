@@ -94,7 +94,10 @@ export async function waitForTurn(dir, { timeoutMs = 9 * 60_000, pollMs = 1000 }
   for (;;) {
     const state = await readState(dir);
     if (!state) return { status: 'none' };
-    if (state.status === 'needs-fix') return { ...state, taskText: await readFile(state.task, 'utf8').catch(() => '') };
+    // A task that has been continued is no longer a task, even if the run has
+    // not noticed yet. Handing it out again would look like Kane failed twice.
+    const answered = state.status === 'needs-fix' && (await exists(join(dir, `continue-${state.turn}`)));
+    if (state.status === 'needs-fix' && !answered) return { ...state, taskText: await readFile(state.task, 'utf8').catch(() => '') };
     if (state.status === 'finished' || state.status === 'stopped') return state;
     // The run died without saying so (killed, machine slept): do not wait forever.
     if (state.pid && !alive(state.pid)) return { status: 'gone', pid: state.pid };
@@ -116,6 +119,7 @@ export async function continueRun(dir, note = '') {
   const state = await readState(dir);
   if (!state) throw new Error('no Upkeep run is waiting here. Start one with: upkeep run --agent handoff');
   if (state.status !== 'needs-fix') throw new Error(`the run is not waiting for a fix (it is ${state.status}). Run "upkeep wait" to see where it is.`);
+  if (await exists(join(dir, `continue-${state.turn}`))) throw new Error('this task was already continued. Run "upkeep wait" for Kane\'s verdict.');
   await writeFile(join(dir, `continue-${state.turn}`), `${note}\n`);
   return { turn: state.turn };
 }
