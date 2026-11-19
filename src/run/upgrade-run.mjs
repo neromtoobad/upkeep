@@ -69,12 +69,16 @@ function commitMessage(units, verdict, repair) {
  * @param {{target?: string, only?: string[], exclude?: string[], keepWorktree?: boolean, maxChecksPerSearch?: number}} [input.options]
  * @param {(line: string) => void} [input.say]
  * @param {(units: object[], verdict: object, context: object) => Promise<object>} [input.fix]
+ * @param {object} [input.parts] replacements for resolveConfig, makePlan, stagedCheck, kaneStatus, readCredits (tests)
  */
-export async function upgradeRun({ projectDir, options = {}, say = (line) => process.stdout.write(`${line}\n`), fix }) {
+export async function upgradeRun({ projectDir, options = {}, say = (line) => process.stdout.write(`${line}\n`), fix, parts = {} }) {
   const started = Date.now();
+  // The outside world, replaceable so the orchestration can be tested without npm, a browser or Kane.
+  const world = { resolveConfig, makePlan, stagedCheck, kaneStatus, readCredits, ...parts };
+  const { stagedCheck: runStagedCheck, kaneStatus: readKaneStatus, readCredits: creditsLeft } = world;
 
-  const config = await resolveConfig(projectDir);
-  const plan = await makePlan(projectDir, options);
+  const config = await world.resolveConfig(projectDir);
+  const plan = await world.makePlan(projectDir, options);
   say(`Upkeep · ${plan.project}`);
 
   if (plan.units.length === 0) {
@@ -82,11 +86,11 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     return { landed: [], blocked: [], checks: 0, branch: null };
   }
 
-  const kane = await kaneStatus();
+  const kane = await readKaneStatus();
   if (!kane.signedIn) {
     throw new RunStopped(/not installed/.test(kane.detail) ? kane.detail : 'Kane CLI is not signed in. Run: kane-cli login --oauth');
   }
-  const creditsBefore = await readCredits();
+  const creditsBefore = await creditsLeft();
 
   const work = await openWorktree(projectDir);
   const runDir = join(projectDir, '.upkeep', 'runs', runStamp());
@@ -140,7 +144,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       await writeVersions(work.projectDir, baseText, units);
     }
     const stagesSeen = [];
-    const verdict = await stagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
+    const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
     await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
@@ -171,7 +175,12 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     }
     if (!seeded) say('      (first install in the worktree; later checks are faster)');
     // Recordings Kane wrote for the first time belong with the flows when the repo tracks them.
-    const recorded = await commitAll(work.projectDir, 'Record the Kane flows on the current versions\n\nSteps recorded by Kane CLI before any upgrade, so later runs replay them.');
+    // Only the recordings: whatever else the first install touched is reset before the next check anyway.
+    const recorded = await commitAll(
+      work.projectDir,
+      'Record the Kane flows on the current versions\n\nSteps recorded by Kane CLI before any upgrade, so later runs replay them.',
+      config.flows.map((flow) => join(dirname(flow), `output-${basename(flow).replace(/_test\.md$/, '')}`)),
+    );
     if (recorded) say(`      recorded the flows: ${recorded.slice(0, 7)}`);
     say('');
 
@@ -218,7 +227,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     say('');
   } finally {
     result.checks = checkNumber;
-    const creditsAfter = await readCredits();
+    const creditsAfter = await creditsLeft();
     result.credits = creditsBefore !== null && creditsAfter !== null ? Number((creditsBefore - creditsAfter).toFixed(2)) : null;
     result.seconds = Math.round((Date.now() - started) / 1000);
     const runRecord = { project: plan.project, ...(options.agentName ? { agent: options.agentName } : {}), branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };

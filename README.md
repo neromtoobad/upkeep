@@ -141,6 +141,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
 | Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:52` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
+| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:137` | `test/upgrade-run.test.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in
@@ -151,6 +152,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | The agent's fix | Real: Claude Code, headless, one round | `evidence/2026-11-19-1500-fixed-by-agent/agent/` |
 | The app being upgraded | A demo shop written for this project against 2021-era packages. Nothing in it is a planted bug; what breaks is what the new releases changed | `evidence/*/run.json` lists the packages and versions |
 | Unit tests of the loop, the fix loop and the check | Use stand-ins for Kane and for the agent, and say so at the top of each file | `test/land-upgrades.test.mjs`, `test/fix-loop.test.mjs`, `test/staged-check.test.mjs` |
+| Tests of `upkeep run` as a whole | A real git repository, worktree, commits, ledger and report. The plan, the check and the Kane account are stand-ins | `test/upgrade-run.test.mjs` |
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
 | The Codex CLI preset (`--agent codex`) | Written from the Codex documentation. **Not run by us**: Codex is not installed here | `src/agent/ask-agent.mjs` |
@@ -163,7 +165,6 @@ Every claim made here, the line of code behind it, and how it is checked.
   workspaces does not.
 - Resuming a run that was interrupted. A new run starts again from your last commit.
 - Mobile flows. Kane CLI can drive simulators; Upkeep only serves web apps.
-- `--budget` and `upkeep run` as a whole have no unit tests; they are exercised by the real runs.
 
 ## Trust model and limits
 

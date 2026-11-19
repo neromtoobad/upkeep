@@ -108,10 +108,20 @@ export async function openWorktree(projectDir, options = {}) {
 
 /**
  * Commit everything changed in the project folder except local tool state.
+ * @param {string[]} [paths] limit the commit to these paths (missing ones are skipped)
  * @returns {Promise<string|null>} the new commit, or null when nothing changed
  */
-export async function commitAll(worktreeProjectDir, message) {
-  await git(['add', '-A', '--', '.'], worktreeProjectDir);
+export async function commitAll(worktreeProjectDir, message, paths = ['.']) {
+  const present = [];
+  for (const path of paths) if (path === '.' || (await exists(join(worktreeProjectDir, path)))) present.push(path);
+  if (present.length === 0) return null;
+  // One path at a time: naming a path git ignores makes `git add` fail, and
+  // an ignored path (recordings usually are) should just be left out.
+  for (const path of present) {
+    await git(['add', '-A', '--', path], worktreeProjectDir).catch((error) => {
+      if (!/ignored by one of your \.gitignore/.test(error.message)) throw error;
+    });
+  }
   // Evidence packs name the Kane account that made them, and .upkeep is scratch
   // space: neither is ever committed, even in a repo that does not ignore them.
   // (Excluding them in the `add` pathspec fails when they are already ignored.)

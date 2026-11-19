@@ -94,5 +94,11 @@
     "file": "package.json",
     "find": "\"peerDependencies\"",
     "check": "`package.json` has no `dependencies`; `node tools/check-claims.mjs`"
+  },
+  {
+    "claim": "`--budget` stops new checks once the credits are spent; what landed stays on the branch",
+    "file": "src/run/upgrade-run.mjs",
+    "find": "throw new BudgetReached(",
+    "check": "`test/upgrade-run.test.mjs`"
   }
 ]
