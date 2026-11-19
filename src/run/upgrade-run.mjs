@@ -9,6 +9,7 @@ import { resolveConfig } from '../config/resolve-config.mjs';
 import { openWorktree, commitAll, discardChanges, git, gitRaw, RunInProgress } from '../workspace/worktree.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { writeVersions } from '../apply/set-versions.mjs';
 import { stagedCheck } from '../check/staged-check.mjs';
 import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
@@ -87,6 +88,19 @@ async function seedRecordings(from, to, flows) {
     copied += 1;
   }
   return copied;
+}
+
+/**
+ * Which Upkeep and which Kane CLI produced a run: the version, and the commit
+ * when Upkeep runs from a git checkout. A reader can then tell whether a
+ * published run was made by the code they are looking at.
+ */
+async function madeBy(kaneVersion) {
+  const here = fileURLToPath(new URL('../..', import.meta.url));
+  const { version } = JSON.parse(await readFile(join(here, 'package.json'), 'utf8'));
+  const commit = await git(['rev-parse', '--short', 'HEAD'], here).catch(() => null);
+  const dirty = commit ? (await git(['status', '--porcelain', '--', 'src', 'bin'], here).catch(() => '')) !== '' : false;
+  return { upkeep: { version, ...(commit ? { commit: `${commit}${dirty ? '+changes' : ''}` } : {}) }, ...(kaneVersion ? { kane: kaneVersion } : {}) };
 }
 
 const recordingsOf = (flows) => flows.map((flow) => join(dirname(flow), `output-${basename(flow).replace(/_test\.md$/, '')}`));
@@ -244,6 +258,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   let checkNumber = 0;
   let spent = 0;
   let policyPath = null;
+  let kaneVersion;
   const check = async (units, { keepManifest = false, label, speed = 'full', upTo = 'kane' } = {}) => {
     if (interrupted()) throw new Interrupted();
     if (options.budget !== undefined && spent >= options.budget) {
@@ -267,6 +282,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       throw new Interrupted();
     }
     const packs = await keepPacks(verdict);
+    kaneVersion ??= verdict.kaneVersion;
     spent += verdict.credits ?? 0;
     // Kane's policy engine on the pack: flows that verify nothing, and steps Kane healed.
     let policy = null;
@@ -376,7 +392,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const creditsAfter = await creditsLeft();
     result.credits = creditsBefore !== null && creditsAfter !== null ? Number((creditsBefore - creditsAfter).toFixed(2)) : null;
     result.seconds = Math.round((Date.now() - started) / 1000);
-    const runRecord = { project: plan.project, ...(options.agentName ? { agent: options.agentName } : {}), branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
+    const runRecord = { ...(await madeBy(kaneVersion)), project: plan.project, ...(options.agentName ? { agent: options.agentName } : {}), branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
     await writeFile(join(runDir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
     await writeFile(join(runDir, 'report.md'), renderReport(runRecord, ledger, { agentName: options.agentName }));
     await writeFile(join(runDir, 'report.html'), await renderRunHtml(runDir, { run: runRecord, ledger, agentName: options.agentName }));

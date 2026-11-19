@@ -137,5 +137,6 @@ export function renderReport(run, ledger, options = {}) {
   }
   out.push('');
   out.push('Kane CLI evidence packs for each check are in the run folder next to this report.');
+  if (run.upkeep) out.push('', `Made by Upkeep ${run.upkeep.version}${run.upkeep.commit ? ` (commit ${run.upkeep.commit})` : ''}${run.kane ? ` with Kane CLI ${run.kane}` : ''}.`);
   return `${out.join('\n')}\n`;
 }

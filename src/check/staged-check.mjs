@@ -119,6 +119,7 @@ export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', sta
       summary: suite.summary,
       flows: suite.flows,
       packs: suite.packs,
+      ...(suite.kaneVersion ? { kaneVersion: suite.kaneVersion } : {}),
       ...(used !== undefined ? { credits: used } : {}),
     });
   } finally {

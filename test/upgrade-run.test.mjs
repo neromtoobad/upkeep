@@ -127,7 +127,11 @@ test('a whole run: safe upgrades land, a breaking one is fixed and lands, anothe
     const report = await readFile(join(result.runDir, 'report.md'), 'utf8');
     assert.match(report, /\*\*4 packages behind · 3 upgraded and verified · 1 upgrade broke the app and was fixed · 1 held back\*\*/);
     assert.match(report, /Kane CLI caught it, Test Agent changed the app/);
-    assert.equal(JSON.parse(await readFile(join(result.runDir, 'run.json'), 'utf8')).agent, 'Test Agent');
+    const runRecord = JSON.parse(await readFile(join(result.runDir, 'run.json'), 'utf8'));
+    assert.equal(runRecord.agent, 'Test Agent');
+    assert.match(runRecord.upkeep.version, /^\d+\.\d+\.\d+/, 'the run says which Upkeep made it');
+    assert.match(runRecord.upkeep.commit, /^[0-9a-f]{7,}/, 'and, from a git checkout, which commit');
+    assert.match(report, /Made by Upkeep \d+\.\d+\.\d+ \(commit [0-9a-f]{7,}/);
     assert.equal(await exists(join(dir, '.gitignore')), false);
   } finally {
     await cleanup();

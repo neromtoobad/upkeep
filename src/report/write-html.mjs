@@ -190,7 +190,8 @@ export function renderHtml(run, ledger, options = {}) {
     out.push(`<table><tbody>${run.skipped.map((s) => `<tr><td class="mono">${esc(s.name)}</td><td>${esc(s.reason)}</td></tr>`).join('')}</tbody></table>`);
   }
 
-  out.push(`<footer>Written by Upkeep from the run's ledger. Screenshots are Kane CLI's own, taken from its evidence packs. A quick check replays recorded steps and stops at the first mismatch; nothing is blamed or held back without a full check, in which Kane first tries to heal the step.</footer>`);
+  const madeBy = run.upkeep ? ` Made by Upkeep ${esc(run.upkeep.version)}${run.upkeep.commit ? ` (commit ${esc(run.upkeep.commit)})` : ''}${run.kane ? ` with Kane CLI ${esc(run.kane)}` : ''}.` : '';
+  out.push(`<footer>Written by Upkeep from the run's ledger.${madeBy} Screenshots are Kane CLI's own, taken from its evidence packs. A quick check replays recorded steps and stops at the first mismatch; nothing is blamed or held back without a full check, in which Kane first tries to heal the step.</footer>`);
 
   return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Upkeep report: ${esc(run.project)}</title>\n<style>${STYLE}</style>\n</head>\n<body>\n<main>\n${out.join('\n')}\n</main>\n</body>\n</html>\n`;
 }

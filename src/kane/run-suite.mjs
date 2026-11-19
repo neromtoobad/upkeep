@@ -109,5 +109,5 @@ export async function runKaneSuite({ cwd, flows, parallel = 3, heal = true, time
     }
   }
 
-  return { ...verdict, flows: results, packs, seconds: Math.round((Date.now() - started) / 1000) };
+  return { ...verdict, flows: results, packs, kaneVersion: suite.cliVersion, seconds: Math.round((Date.now() - started) / 1000) };
 }
