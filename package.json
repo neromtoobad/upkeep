@@ -15,7 +15,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "claims": "node tools/check-claims.mjs"
   },
   "keywords": [
     "kane-cli",

@@ -19,3 +19,5 @@ jobs:
           node-version: ${{ matrix.node }}
       # No install step: Upkeep has no dependencies.
       - run: npm test
+      # The README's claims table and the published run ledgers are checked too.
+      - run: npm run claims
