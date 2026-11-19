@@ -122,7 +122,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   const lockTracked = (await git(['ls-files', 'package-lock.json'], work.projectDir)) !== '';
 
   let checkNumber = 0;
-  const check = async (units, { keepManifest = false, label } = {}) => {
+  const check = async (units, { keepManifest = false, label, speed = 'full' } = {}) => {
     checkNumber += 1;
     const number = checkNumber;
     if (!keepManifest) {
@@ -131,16 +131,24 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       await writeVersions(work.projectDir, baseText, units);
     }
     const stagesSeen = [];
-    const verdict = await stagedCheck({ cwd: work.projectDir, config, onStage: ({ stage }) => stagesSeen.push(stage) });
+    const verdict = await stagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', onStage: ({ stage }) => stagesSeen.push(stage) });
     const packs = await keepPacks(verdict);
-    await record({ type: 'check', number, label, units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
+    await record({ type: 'check', number, label, speed, units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
 
     const mark = verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
     const what = units.length === 0 ? 'the app as it is' : units.length <= 3 ? units.map((unit) => unit.id).join(', ') : plural(units.length, 'unit');
     const cost = [`${verdict.seconds}s`, verdict.credits !== undefined ? `${verdict.credits} credits` : null].filter(Boolean).join(' · ');
-    say(`  ${mark} check ${number}  ${what}`);
+    say(`  ${mark} check ${number}  ${what}${speed === 'quick' ? '  (quick)' : ''}`);
     say(`      ${stagesSeen.join(' → ')}  ${verdict.outcome === 'pass' ? verdict.summary : `failed at ${verdict.stage}: ${verdict.summary}`}  (${cost})`);
     return { ...verdict, packs };
+  };
+
+  // Put exactly these units in place (versions and installed packages) without checking the app.
+  const apply = async (units) => {
+    const baseText = await gitRaw(['show', `HEAD:${manifestPath}`], work.projectDir);
+    if (lockTracked) await git(['checkout', 'HEAD', '--', 'package-lock.json'], work.projectDir);
+    await writeVersions(work.projectDir, baseText, units);
+    return runCommand(config.install, { cwd: work.projectDir, timeoutMs: 20 * 60_000 });
   };
 
   const result = { landed: [], blocked: [], checks: 0, branch: work.branch, runDir };
@@ -158,7 +166,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     say('');
 
     const fixer = fix
-      ? (units, verdict) => fix(units, verdict, { work, config, check, say, record })
+      ? (units, verdict) => fix(units, verdict, { work, config, check, apply, say, record, runDir })
       : async () => ({ fixed: false, rounds: 0, reason: 'no coding agent was asked to fix it' });
 
     const phases = [
@@ -170,7 +178,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       say(`${title} (${units.length})`);
       const phase = await landUpgrades({
         units,
-        check: (subset) => check(subset, { label: title }),
+        check: (subset, speed) => check(subset, { label: title, speed }),
         fix: fixer,
         land: async (landedUnits, verdict, repair) => {
           const sha = await commitAll(work.projectDir, commitMessage(landedUnits, verdict, repair));
@@ -181,6 +189,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
         maxChecksPerSearch: options.maxChecksPerSearch,
         onEvent: (event) => {
           if (event.type === 'culprit') say(`      culprit: ${event.units.join(' + ')}${event.separated ? '' : '  (search budget ran out; not fully separated)'}`);
+          if (event.type === 'landed' && event.cleared) say('      a quick check failed on these, the full check passed: Kane healed a changed page, the app works');
           if (event.type === 'blocked') say(`      blocked: ${event.units.join(' + ')}: ${event.reason}`);
         },
       });

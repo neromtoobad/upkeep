@@ -39,11 +39,12 @@ export function buildReason(output) {
  * @param {object} input
  * @param {string} input.cwd           project folder (in the worktree)
  * @param {object} input.config        from resolveConfig()
+ * @param {boolean} [input.heal]       let Kane heal a recorded step that no longer matches (default true)
  * @param {object} [input.stages]      replacements for the real stage runners, for tests
  * @param {(event: object) => void} [input.onStage]
  * @returns {Promise<Verdict>}
  */
-export async function stagedCheck({ cwd, config, stages = {}, onStage = () => {} }) {
+export async function stagedCheck({ cwd, config, heal = true, stages = {}, onStage = () => {} }) {
   const started = Date.now();
   const run = stages.runCommand ?? runCommand;
   const serve = stages.serveApp ?? serveApp;
@@ -84,7 +85,7 @@ export async function stagedCheck({ cwd, config, stages = {}, onStage = () => {}
   try {
     onStage({ stage: 'kane' });
     const before = await credits();
-    const suite = await kane({ cwd, flows: config.flows, parallel: config.parallel });
+    const suite = await kane({ cwd, flows: config.flows, parallel: config.parallel, heal });
     const after = await credits();
     const used = before !== null && after !== null ? Math.max(0, Number((before - after).toFixed(2))) : undefined;
     return finish({

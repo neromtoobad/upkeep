@@ -9,10 +9,12 @@ const CONFIG = { install: 'npm install', build: 'npm run build', serve: 'npx vit
 // test says what each stage answers and records which stages were reached.
 function stages({ install = { code: 0, output: '' }, build = { code: 0, output: '' }, serve = 'ok', kane = { outcome: 'pass', failing: [], summary: '1 of 1 flows passed', flows: [], packs: ['p.evidence'] }, credits = [100, 92] } = {}) {
   const reached = [];
+  const kaneInputs = [];
   let stopped = false;
   let creditCall = 0;
   return {
     reached,
+    kaneInputs,
     wasStopped: () => stopped,
     runCommand: async (command) => {
       reached.push(command);
@@ -24,8 +26,9 @@ function stages({ install = { code: 0, output: '' }, build = { code: 0, output: 
       if (serve !== 'ok') return { ok: false, reason: serve, output: 'Error: Cannot find module "vite"' };
       return { ok: true, stop: async () => { stopped = true; }, output: () => '' };
     },
-    runKaneSuite: async () => {
+    runKaneSuite: async (input) => {
       reached.push('kane');
+      kaneInputs.push(input);
       if (kane instanceof Error) throw kane;
       return kane;
     },
@@ -43,6 +46,16 @@ test('all stages pass: a pass, with the credits Kane used and the app stopped', 
   assert.deepEqual(verdict.packs, ['p.evidence']);
   assert.deepEqual(seen, ['install', 'build', 'boot', 'kane']);
   assert.equal(s.wasStopped(), true);
+});
+
+test('a quick check tells Kane not to heal; a full check lets it', async () => {
+  const quick = stages();
+  await stagedCheck({ cwd: '/app', config: CONFIG, heal: false, stages: quick });
+  assert.equal(quick.kaneInputs[0].heal, false);
+  const full = stages();
+  await stagedCheck({ cwd: '/app', config: CONFIG, stages: full });
+  assert.equal(full.kaneInputs[0].heal, true);
+  assert.deepEqual(full.kaneInputs[0].flows, ['flows/a_test.md']);
 });
 
 test('an install conflict fails at install and never reaches the browser', async () => {

@@ -29,6 +29,11 @@ export function makeFixer({ agent, maxRounds = 3, readFailure, ask = askAgent })
     const taskDir = join(runDir, 'agent', label.replace(/[^a-z0-9@._+-]+/gi, '_'));
     await mkdir(taskDir, { recursive: true });
 
+    // Packages that cannot be installed together are not something app code can fix.
+    if (firstVerdict.stage === 'install') {
+      return { fixed: false, rounds: 0, verdict: firstVerdict, reason: firstVerdict.summary ?? 'the new versions cannot be installed' };
+    }
+
     // The worktree may hold some other subset from the search; put exactly the culprit in place.
     await apply(units);
 

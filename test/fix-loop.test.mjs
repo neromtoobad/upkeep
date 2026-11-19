@@ -169,12 +169,13 @@ test('askAgent runs a command of your own, with the task on stdin or in a file',
   }
 });
 
-test('resolveAgent knows Claude Code and Codex, and gives them no shell', () => {
+test('resolveAgent knows Claude Code (file tools only, no shell) and Codex (sandboxed)', () => {
   const claude = resolveAgent('claude');
   assert.equal(claude.name, 'Claude Code');
   assert.ok(claude.args.includes('-p'));
   assert.equal(claude.args[claude.args.indexOf('--allowedTools') + 1], 'Read,Edit,Write,Glob,Grep');
   assert.deepEqual(claude.reply(JSON.stringify({ result: ' Fixed. ', total_cost_usd: 0.12 })), { text: 'Fixed.', costUsd: 0.12 });
   assert.equal(resolveAgent('codex').name, 'Codex CLI');
+  assert.deepEqual(resolveAgent('codex').args, ['exec', '--sandbox', 'workspace-write', '-']);
   assert.throws(() => resolveAgent(''), /no agent given/);
 });

@@ -13,6 +13,7 @@ const ids = (units) => units.map((unit) => unit.id);
  */
 function world({ breaks = {}, fixable = [], unavailableAfter = Infinity } = {}) {
   const log = [];
+  const speeds = [];
   const repaired = new Set();
   let checks = 0;
 
@@ -27,10 +28,12 @@ function world({ breaks = {}, fixable = [], unavailableAfter = Infinity } = {}) 
 
   return {
     log,
-    check: async (units) => {
+    speeds,
+    check: async (units, speed) => {
       checks += 1;
       if (checks > unavailableAfter) return { outcome: 'error', summary: 'Kane CLI is not signed in' };
       const failure = failureIn(units);
+      speeds.push(speed);
       log.push(['check', ids(units).join(','), failure ? 'fail' : 'pass']);
       return failure
         ? {
@@ -85,12 +88,14 @@ test('one breaking upgrade is isolated, fixed, landed with its fix, and the rest
     ['land', 'f', 'with fix'],
     ['land', 'a,b,c,d,e,g,h', 'as is'],
   ]);
-  // 1 together, 5 to isolate one among 8 (abcd, efgh, ef, e, f), 1 for the rest
-  assert.equal(result.checks, 7);
+  // 1 together, 5 quick ones to isolate one among 8 (abcd, efgh, ef, e, f),
+  // 1 full one to confirm f, 1 for the rest
+  assert.equal(result.checks, 8);
   assert.deepEqual(
     w.log.filter(([what]) => what === 'check').map(([, which, outcome]) => `${which}:${outcome}`),
-    ['a,b,c,d,e,f,g,h:fail', 'a,b,c,d:pass', 'e,f,g,h:fail', 'e,f:fail', 'e:pass', 'f:fail', 'a,b,c,d,e,g,h:pass'],
+    ['a,b,c,d,e,f,g,h:fail', 'a,b,c,d:pass', 'e,f,g,h:fail', 'e,f:fail', 'e:pass', 'f:fail', 'f:fail', 'a,b,c,d,e,g,h:pass'],
   );
+  assert.deepEqual(w.speeds, ['full', 'quick', 'quick', 'quick', 'quick', 'quick', 'full', 'full']);
 });
 
 test('an upgrade the agent cannot fix is blocked and discarded, never landed', async () => {
@@ -175,6 +180,36 @@ test('two packages that break two different flows are separated, not handed over
   assert.deepEqual(result.landed.map((entry) => ids(entry.units).join(',')), ['a,c,d,f']);
 });
 
+test('a quick failure that a full check clears is landed, not blamed', async () => {
+  // Upgrading "d" changes the page enough that a recorded step no longer
+  // matches (a quick check fails), but the app works: Kane heals the step and
+  // a full check passes. "f" is the upgrade that really breaks the app.
+  const fixed = [];
+  const check = async (units, speed) => {
+    const present = new Set(ids(units));
+    if (present.has('f')) return { outcome: 'fail', stage: 'kane', failing: ['checkout_test.md'] };
+    if (present.has('d') && speed === 'quick') return { outcome: 'fail', stage: 'kane', failing: ['checkout_test.md'] };
+    return { outcome: 'pass' };
+  };
+  const landedSets = [];
+  const result = await landUpgrades({
+    units: unitsNamed('a', 'b', 'c', 'd', 'e', 'f'),
+    check,
+    fix: async (units) => {
+      fixed.push(ids(units).join(','));
+      return { fixed: false };
+    },
+    land: async (units, verdict) => {
+      assert.equal(verdict.outcome, 'pass');
+      landedSets.push(ids(units).join(','));
+    },
+  });
+  assert.ok(!fixed.includes('d'), 'd was never handed to the agent');
+  assert.deepEqual(fixed, ['f']);
+  assert.ok(landedSets.includes('d'), 'd landed on its own after the full check cleared it');
+  assert.deepEqual(result.blocked.map((entry) => ids(entry.units).join(',')), ['f']);
+});
+
 test('a check that cannot run stops everything instead of blaming an upgrade', async () => {
   const w = world({ breaks: { c: 'kane' }, unavailableAfter: 2 });
   await assert.rejects(
@@ -201,7 +236,8 @@ test('reports progress as events', async () => {
   await landUpgrades({ units: unitsNamed('a', 'b'), ...w, onEvent: (event) => events.push(event) });
   assert.deepEqual(
     events.map((event) => event.type),
-    ['check_start', 'check_end', 'check_start', 'check_end', 'check_start', 'check_end', 'culprit', 'landed', 'check_start', 'check_end', 'landed'],
+    // together, isolate a, isolate b, confirm b, culprit, landed, the rest, landed
+    ['check_start', 'check_end', 'check_start', 'check_end', 'check_start', 'check_end', 'check_start', 'check_end', 'culprit', 'landed', 'check_start', 'check_end', 'landed'],
   );
   const culprit = events.find((event) => event.type === 'culprit');
   assert.deepEqual(culprit.units, ['b']);

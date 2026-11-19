@@ -4,9 +4,17 @@
 //   1. Apply every remaining upgrade and check the app.
 //   2. Pass: land them all in one commit. Done.
 //   3. Fail: search for the smallest set that fails the same way (ddmin).
-//   4. Hand that set and the failure to `fix` (the coding agent). If the app
-//      checks out again, land the upgrade with the fix; if not, block it.
-//   5. Take it out of the remaining set and go back to 1.
+//   4. Confirm that set with a full check. If it passes after all, land it.
+//   5. Otherwise hand it and the failure to `fix` (the coding agent). If the
+//      app checks out again, land the upgrade with the fix; if not, block it.
+//   6. Take it out of the remaining set and go back to 1.
+//
+// Checks come in two speeds. A full check lets Kane CLI heal a recorded step
+// that no longer matches the page before calling it a failure; it is the only
+// kind allowed to blame or clear an upgrade. A quick check stops at the first
+// mismatch. The search in step 3 uses quick checks, which is why step 4
+// exists: a quick failure can be a harmless change in the page, and only a
+// full check can tell.
 //
 // This module only decides. Applying versions, running Kane CLI, calling the
 // agent and committing are passed in, so the decisions can be tested alone.
@@ -40,7 +48,7 @@ const idsOf = (units) => units.map((unit) => unit.id);
 /**
  * @param {object} input
  * @param {Unit[]} input.units
- * @param {(units: Unit[]) => Promise<Verdict>} input.check
+ * @param {(units: Unit[], speed: 'full'|'quick') => Promise<Verdict>} input.check
  *   applies exactly these units on top of what has landed and checks the app
  * @param {(units: Unit[], verdict: Verdict) => Promise<Repair>} input.fix
  *   leaves the units applied together with its code changes when it returns fixed
@@ -61,7 +69,7 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
   const runCheck = async (subset, purpose) => {
     checks += 1;
     onEvent({ type: 'check_start', units: idsOf(subset), purpose });
-    const verdict = await check(subset);
+    const verdict = await check(subset, purpose === 'isolate' ? 'quick' : 'full');
     onEvent({ type: 'check_end', units: idsOf(subset), purpose, verdict });
     if (verdict.outcome === 'error') throw new CheckUnavailable(verdict);
     if (verdict.outcome !== 'pass' && verdict.outcome !== 'fail') {
@@ -79,13 +87,10 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
       break;
     }
 
-    // Keep each subset's own verdict: the culprit's is what the agent reads.
-    const verdicts = new Map();
     const search = await ddmin(
       remaining,
       async (subset) => {
         const verdict = await runCheck(subset, 'isolate');
-        verdicts.set(idsOf(subset).join('\u0000'), verdict);
         if (verdict.outcome === 'pass') return 'pass';
         // A subset that fails some other way (say, an install conflict from a
         // combination the full set did not have) is not evidence either way.
@@ -95,7 +100,19 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
     );
 
     const culprit = search.minimal;
-    const culpritVerdict = verdicts.get(idsOf(culprit).join('\u0000')) ?? together;
+    let culpritVerdict = together;
+    if (culprit.length < remaining.length) {
+      // The search narrowed it down with quick checks. Blame needs a full one.
+      culpritVerdict = await runCheck(culprit, 'confirm');
+      if (culpritVerdict.outcome === 'pass') {
+        await land(culprit, culpritVerdict);
+        landed.push({ units: culprit, verdict: culpritVerdict, fixed: false });
+        onEvent({ type: 'landed', units: idsOf(culprit), fixed: false, cleared: true });
+        const cleared = new Set(culprit);
+        remaining = remaining.filter((unit) => !cleared.has(unit));
+        continue;
+      }
+    }
     onEvent({
       type: 'culprit',
       units: idsOf(culprit),

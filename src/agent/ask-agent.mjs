@@ -9,9 +9,13 @@ import { join } from 'node:path';
 import { stopGroup, tailBuffer } from '../check/run-command.mjs';
 
 /**
- * Known agents. Each gets the task on stdin and may read and edit files, but
- * is not given a shell: it has no way to run the browser or change installs,
- * so the only path to green is fixing the app.
+ * Known agents. Each gets the task on stdin.
+ *
+ * Claude Code is given file tools only (read, edit, search) and no shell, so
+ * it cannot run the browser or reinstall packages: the only path to green is
+ * fixing the app. Codex CLI runs in its own workspace-write sandbox, which
+ * lets it edit the worktree and nothing outside it. Either way the guard in
+ * guard-patch.mjs checks what was changed afterwards.
  */
 export const AGENTS = {
   claude: {

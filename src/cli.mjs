@@ -5,6 +5,9 @@ import { resolve } from 'node:path';
 import { makePlan, renderPlan } from './plan/make-plan.mjs';
 import { upgradeRun, RunStopped } from './run/upgrade-run.mjs';
 import { CheckUnavailable } from './loop/land-upgrades.mjs';
+import { makeFixer } from './agent/fix-loop.mjs';
+import { resolveAgent } from './agent/ask-agent.mjs';
+import { readFailure } from './kane/read-evidence.mjs';
 
 const HELP = `Upkeep updates your outdated packages and proves in a real browser that the app still works.
 
@@ -22,6 +25,11 @@ Options for plan
   --json                    Print the plan as JSON
 
 Options for run
+  --agent <name|command>    Coding agent that fixes an upgrade Kane says broke the app:
+                            claude, codex, or your own command (the task arrives on stdin,
+                            or in a file if the command contains {prompt_file}).
+                            Without it, breaking upgrades are isolated and held back.
+  --rounds <n>              Most rounds between Kane and the agent per upgrade (default 3)
   --max-checks <n>          Most checks to spend isolating one failure (default 24)
   --keep-worktree           Leave the working copy in place when the run ends
 
@@ -32,7 +40,7 @@ Options for run
 /** Thrown for mistakes in how the command was typed. */
 export class UsageError extends Error {}
 
-const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks']);
+const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds']);
 const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
@@ -105,8 +113,15 @@ export async function main(argv, io = {}) {
   }
 
   if (command === 'run') {
-    const maxChecks = flags['max-checks'] === undefined ? undefined : Number(flags['max-checks']);
-    if (maxChecks !== undefined && (!Number.isInteger(maxChecks) || maxChecks < 1)) throw new UsageError('--max-checks needs a whole number above 0');
+    const count = (name) => {
+      if (flags[name] === undefined) return undefined;
+      const value = Number(flags[name]);
+      if (!Number.isInteger(value) || value < 1) throw new UsageError(`--${name} needs a whole number above 0`);
+      return value;
+    };
+    const maxChecks = count('max-checks');
+    const rounds = count('rounds');
+    const fix = flags.agent ? makeFixer({ agent: resolveAgent(flags.agent), maxRounds: rounds, readFailure }) : undefined;
     try {
       const result = await upgradeRun({
         projectDir: resolve(flags.cwd ?? '.'),
@@ -118,6 +133,7 @@ export async function main(argv, io = {}) {
           maxChecksPerSearch: maxChecks,
         },
         say: (line) => out(`${line}\n`),
+        fix,
       });
       // 0: everything behind was upgraded. 3: some were held back. Both leave a usable branch.
       return result.blocked.length > 0 ? 3 : 0;
