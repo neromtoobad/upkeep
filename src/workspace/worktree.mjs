@@ -25,6 +25,16 @@ export async function git(args, cwd) {
   }
 }
 
+/** Like git(), but returns stdout exactly as printed (for file contents). */
+export async function gitRaw(args, cwd) {
+  try {
+    const { stdout } = await exec('git', args, { cwd, maxBuffer: 64 * 1024 * 1024 });
+    return stdout;
+  } catch (error) {
+    throw new Error(`git ${args[0]} failed: ${(error.stderr || error.message || '').trim()}`);
+  }
+}
+
 const exists = (path) =>
   access(path).then(
     () => true,
