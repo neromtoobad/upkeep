@@ -12,6 +12,7 @@ import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
 import { kaneStatus, readCredits } from '../kane/run-suite.mjs';
 import { runCommand } from '../check/run-command.mjs';
 import { renderReport } from '../report/write-report.mjs';
+import { renderRunHtml } from '../report/export-run.mjs';
 import { openPullRequest, PullRequestFailed } from '../report/open-pull-request.mjs';
 
 const exists = (path) => access(path).then(() => true, () => false);
@@ -233,6 +234,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const runRecord = { project: plan.project, ...(options.agentName ? { agent: options.agentName } : {}), branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
     await writeFile(join(runDir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
     await writeFile(join(runDir, 'report.md'), renderReport(runRecord, ledger, { agentName: options.agentName }));
+    await writeFile(join(runDir, 'report.html'), await renderRunHtml(runDir, { run: runRecord, ledger, agentName: options.agentName }));
     if (!options.keepWorktree) await work.remove();
   }
 
@@ -243,7 +245,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   if (blockedCount > 0) say(`  ${plural(blockedCount, 'package')} held back: ${result.blocked.map((entry) => entry.units.map((unit) => unit.id).join(' + ')).join(', ')}`);
   const untried = plan.candidates.length - landedCount - blockedCount;
   if (result.stoppedEarly && untried > 0) say(`  ${plural(untried, 'package')} not tried: the budget ran out. Run again to continue from the branch.`);
-  say(`  report: ${join(runDir, 'report.md')}`);
+  say(`  report: ${join(runDir, 'report.html')}  (also report.md)`);
   say(`  Kane evidence for every check: ${join(runDir, 'evidence')}`);
   if (landedCount > 0 && options.pullRequest) {
     try {

@@ -16,15 +16,15 @@ test('scrub removes home folders and email addresses, and keeps test data', () =
 
 const pack = (files) => makeZip(Object.fromEntries(Object.entries(files).map(([name, text]) => [name, { text }])));
 
-test('flowScreenshot prefers the step with Kane’s failure record', () => {
+test('flowScreenshot shows where a failed flow ended, not the step before it went wrong', () => {
   const zip = pack({
     'tests/checkout-ae9bd187/steps/16-1-8/screenshot.jpg': 'filled form',
-    'tests/checkout-ae9bd187/steps/17-1-9/screenshot.jpg': 'blank page',
+    'tests/checkout-ae9bd187/steps/17-1-9/screenshot.jpg': 'the form, just before the click',
     'tests/checkout-ae9bd187/steps/17-1-9/failure.yaml': 'title: Order confirmation crashes',
     'tests/checkout-ae9bd187/steps/20-1-12/screenshot.jpg': 'still blank, later',
   });
   const shot = flowScreenshot(zip, listZip(zip), 'checkout');
-  assert.deepEqual([shot.bytes.toString(), shot.failed], ['blank page', true]);
+  assert.deepEqual([shot.bytes.toString(), shot.failed], ['still blank, later', true]);
 });
 
 test('flowScreenshot takes the last step of the final attempt when the flow passed', () => {
@@ -46,10 +46,10 @@ test('exportRun copies the report, ledger, agent exchange and screenshots, never
     await mkdir(join(run, 'evidence'), { recursive: true });
     await mkdir(join(run, 'agent/date-fns/protected/flows'), { recursive: true });
     await writeFile(join(run, 'report.md'), '# Upkeep report\nlog: /Users/someone/.testmuai/x\n');
-    await writeFile(join(run, 'run.json'), '{"project":"shop"}\n');
+    await writeFile(join(run, 'run.json'), `${JSON.stringify({ project: 'shop', branch: 'upkeep/x', checks: 1, seconds: 60, credits: 8, flows: ['flows/checkout_test.md'], url: 'http://localhost:4173', plan: [{ name: 'date-fns', from: '1.30.1', to: '4.4.0', kind: 'major' }], skipped: [] })}\n`);
     await writeFile(
       join(run, 'ledger.ndjson'),
-      `${JSON.stringify({ type: 'check', number: 3, outcome: 'fail', packs: ['p1.evidence'], flows: [{ flow: 'checkout_test.md', status: 'failed', logPath: '/Users/someone/.testmuai/kaneai/sessions/s/events.ndjson' }, { flow: 'browse_test.md', status: 'passed' }] })}\n${JSON.stringify({ type: 'blocked', units: ['date-fns'] })}\n`,
+      `${JSON.stringify({ type: 'check', number: 3, units: ['date-fns'], speed: 'full', outcome: 'fail', stage: 'kane', summary: '1 of 2 flows failed', packs: ['p1.evidence'], flows: [{ flow: 'checkout_test.md', status: 'failed', logPath: '/Users/someone/.testmuai/kaneai/sessions/s/events.ndjson' }, { flow: 'browse_test.md', status: 'passed' }] })}\n${JSON.stringify({ type: 'blocked', units: ['date-fns'], reason: 'no coding agent was asked to fix it', stage: 'kane', summary: '1 of 2 flows failed' })}\n`,
     );
     await writeFile(join(run, 'agent/date-fns/round-1-task.md'), '# Make this app work\n');
     await writeFile(join(run, 'agent/date-fns/round-1-reply.md'), 'Changed the tokens.\n');
@@ -69,6 +69,7 @@ test('exportRun copies the report, ledger, agent exchange and screenshots, never
       'agent/date-fns/round-1-reply.md',
       'agent/date-fns/round-1-task.md',
       'ledger.ndjson',
+      'report.html',
       'report.md',
       'run.json',
       'screenshots/check-03-browse-passed.jpg',
@@ -77,7 +78,11 @@ test('exportRun copies the report, ledger, agent exchange and screenshots, never
     assert.equal(await readFile(join(out, 'screenshots/check-03-checkout-failed.jpg'), 'utf8'), 'blank page');
     assert.match(await readFile(join(out, 'report.md'), 'utf8'), /log: ~\/\.testmuai\/x/);
     assert.match(await readFile(join(out, 'ledger.ndjson'), 'utf8'), /"logPath":"~\/\.testmuai\/kaneai/);
-    assert.deepEqual((await readdir(out)).sort(), ['agent', 'ledger.ndjson', 'report.md', 'run.json', 'screenshots']);
+    assert.deepEqual((await readdir(out)).sort(), ['agent', 'ledger.ndjson', 'report.html', 'report.md', 'run.json', 'screenshots']);
+    const html = await readFile(join(out, 'report.html'), 'utf8');
+    assert.match(html, /<title>Upkeep report: shop<\/title>/);
+    assert.match(html, /src="data:image\/jpeg;base64,/, 'screenshots are embedded, so the page opens offline');
+    assert.ok(!/src="https?:|<script|<link/.test(html), 'nothing is fetched and nothing runs');
     const everything = (await Promise.all(files.map((file) => readFile(join(out, file), 'utf8')))).join('\n');
     assert.ok(!everything.includes('someone@gmail.com') && !everything.includes('/Users/someone'));
   } finally {

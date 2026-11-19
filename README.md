@@ -139,9 +139,9 @@ Every claim made here, the line of code behind it, and how it is checked.
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
-| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:52` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
+| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:84` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
-| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:137` | `test/upgrade-run.test.mjs` |
+| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:138` | `test/upgrade-run.test.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in

@@ -8,7 +8,7 @@ import { CheckUnavailable } from './loop/land-upgrades.mjs';
 import { makeFixer } from './agent/fix-loop.mjs';
 import { resolveAgent } from './agent/ask-agent.mjs';
 import { readFailure } from './kane/read-evidence.mjs';
-import { exportRun } from './report/export-run.mjs';
+import { exportRun, renderRunHtml } from './report/export-run.mjs';
 import { renderReport } from './report/write-report.mjs';
 import { join } from 'node:path';
 
@@ -17,7 +17,7 @@ const HELP = `Upkeep updates your outdated packages and proves in a real browser
 Usage
   upkeep plan [options]     Show which packages are behind and how they will be moved
   upkeep run [options]      Upgrade them on a new branch, keeping only what Kane CLI verifies
-  upkeep report <run>       Print the report of a finished run again, from its ledger
+  upkeep report <run>       Print the report of a finished run again, from its ledger (--html for the page)
   upkeep export <run> --out <dir>
                             Copy a run (under .upkeep/runs/) without account details, to publish it
 
@@ -49,7 +49,7 @@ Options for run
 export class UsageError extends Error {}
 
 const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget', '--out']);
-const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr']);
+const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr', '--html']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
 /** @param {string[]} argv arguments after the program name */
@@ -119,7 +119,7 @@ export async function main(argv, io = {}) {
     } catch (error) {
       throw new Error(`${dir} is not a finished Upkeep run: ${error.message}`);
     }
-    out(renderReport(run, ledger, { agentName: run.agent }));
+    out(flags.html ? await renderRunHtml(dir, { run, ledger, agentName: run.agent }) : renderReport(run, ledger, { agentName: run.agent }));
     return 0;
   }
 

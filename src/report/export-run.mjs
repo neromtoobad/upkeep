@@ -10,6 +10,7 @@ import { mkdir, readFile, readdir, writeFile, access } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { listZip, readZipEntry } from '../kane/zip.mjs';
+import { renderHtml } from './write-html.mjs';
 
 const exists = (path) => access(path).then(() => true, () => false);
 
@@ -22,26 +23,57 @@ export function scrub(text, home = homedir()) {
 }
 
 /**
- * The screenshot that best shows how a flow ended in a pack: the step with
- * Kane's failure record when there is one, otherwise the last step.
+ * The screenshot that shows how a flow ended in a pack: the last step of its
+ * final attempt. For a failed flow that is the state Kane gave up on (the
+ * step holding Kane's failure record is often the click before it, taken while
+ * the page still looked fine).
  * @returns {{bytes: Buffer, failed: boolean} | null}
  */
 export function flowScreenshot(zip, entries, stem) {
   const prefix = `tests/${stem}-`;
   const shots = entries.filter((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/screenshot\.(jpg|png)$/.test(e.name));
   if (shots.length === 0) return null;
-  const record = entries.find((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/failure\.yaml$/.test(e.name));
-  if (record) {
-    const folder = record.name.slice(0, -'failure.yaml'.length);
-    const shot = shots.find((e) => e.name.startsWith(folder));
-    if (shot) return { bytes: readZipEntry(zip, shot), failed: true };
-  }
+  const failed = entries.some((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/failure\.yaml$/.test(e.name));
   const ordinal = (e) => Number(/\/steps\/(\d+)-/.exec(e.name)[1]);
   // A pack can hold more than one attempt of a flow; the top-level one is the final attempt.
   const depth = (e) => e.name.split('/').length;
   const shallowest = Math.min(...shots.map(depth));
   const last = shots.filter((e) => depth(e) === shallowest).sort((a, b) => ordinal(b) - ordinal(a))[0];
-  return { bytes: readZipEntry(zip, last), failed: false };
+  return { bytes: readZipEntry(zip, last), failed };
+}
+
+/**
+ * Kane's screenshot for each flow of each check, from the packs kept in a run folder.
+ * @param {string} runDir
+ * @param {object[]} ledger
+ * @returns {Promise<Map<string, {bytes: Buffer, status: string}>>} keyed "check-<number>-<flow stem>"
+ */
+export async function readScreenshots(runDir, ledger) {
+  const shots = new Map();
+  for (const check of ledger.filter((entry) => entry.type === 'check')) {
+    for (const packName of check.packs ?? []) {
+      const packPath = join(runDir, 'evidence', basename(packName));
+      if (!(await exists(packPath))) continue;
+      const zip = await readFile(packPath);
+      const entries = listZip(zip);
+      for (const flow of check.flows ?? []) {
+        const stem = flow.flow.replace(/_test\.md$/, '');
+        const id = `check-${check.number}-${stem}`;
+        if (shots.has(id)) continue;
+        const shot = flowScreenshot(zip, entries, stem);
+        if (shot) shots.set(id, { bytes: shot.bytes, status: flow.status });
+      }
+    }
+  }
+  return shots;
+}
+
+/** The HTML report for a run folder, with Kane's screenshots embedded. */
+export async function renderRunHtml(runDir, { run, ledger, agentName } = {}) {
+  const runRecord = run ?? JSON.parse(await readFile(join(runDir, 'run.json'), 'utf8'));
+  const entries = ledger ?? (await readFile(join(runDir, 'ledger.ndjson'), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  const shots = await readScreenshots(runDir, entries);
+  return renderHtml(runRecord, entries, { agentName, screenshots: new Map([...shots].map(([id, shot]) => [id, shot.bytes])) });
 }
 
 /**
@@ -72,23 +104,18 @@ export async function exportRun(runDir, outDir) {
     }
   }
 
-  // One screenshot per flow per check, named by check number.
+  // One screenshot per flow per check, named by check number, and the HTML
+  // report rebuilt from the scrubbed text so it carries no local paths.
   if (await exists(join(runDir, 'ledger.ndjson'))) {
-    const ledger = (await readFile(join(runDir, 'ledger.ndjson'), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line));
-    for (const check of ledger.filter((entry) => entry.type === 'check')) {
-      for (const packName of check.packs ?? []) {
-        const packPath = join(runDir, 'evidence', basename(packName));
-        if (!(await exists(packPath))) continue;
-        const zip = await readFile(packPath);
-        const entries = listZip(zip);
-        for (const flow of check.flows ?? []) {
-          const stem = flow.flow.replace(/_test\.md$/, '');
-          const shot = flowScreenshot(zip, entries, stem);
-          if (!shot) continue;
-          const name = join('screenshots', `check-${String(check.number).padStart(2, '0')}-${stem}-${flow.status}.jpg`);
-          if (!files.includes(name)) await put(name, shot.bytes);
-        }
-      }
+    const ledger = scrub(await readFile(join(runDir, 'ledger.ndjson'), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const shots = await readScreenshots(runDir, ledger);
+    for (const [id, shot] of shots) {
+      const [, number, ...rest] = id.split('-');
+      await put(join('screenshots', `check-${number.padStart(2, '0')}-${rest.join('-')}-${shot.status}.jpg`), shot.bytes);
+    }
+    if (await exists(join(runDir, 'run.json'))) {
+      const run = JSON.parse(scrub(await readFile(join(runDir, 'run.json'), 'utf8')));
+      await put('report.html', renderHtml(run, ledger, { screenshots: new Map([...shots].map(([id, shot]) => [id, shot.bytes])) }));
     }
   }
 
