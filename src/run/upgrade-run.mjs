@@ -128,7 +128,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
 
   let checkNumber = 0;
   let spent = 0;
-  const check = async (units, { keepManifest = false, label, speed = 'full' } = {}) => {
+  const check = async (units, { keepManifest = false, label, speed = 'full', upTo = 'kane' } = {}) => {
     if (options.budget !== undefined && spent >= options.budget) {
       throw new BudgetReached(`the budget of ${options.budget} Kane credits is used up (${Number(spent.toFixed(2))} spent)`);
     }
@@ -140,12 +140,12 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       await writeVersions(work.projectDir, baseText, units);
     }
     const stagesSeen = [];
-    const verdict = await stagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', onStage: ({ stage }) => stagesSeen.push(stage) });
+    const verdict = await stagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
-    await record({ type: 'check', number, label, speed, units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
+    await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
 
-    const mark = verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
+    const mark = verdict.partial ? '·' : verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
     const what = units.length === 0 ? 'the app as it is' : units.length <= 3 ? units.map((unit) => unit.id).join(', ') : plural(units.length, 'unit');
     const cost = [`${verdict.seconds}s`, verdict.credits !== undefined ? `${verdict.credits} credits` : null].filter(Boolean).join(' · ');
     say(`  ${mark} check ${number}  ${what}${speed === 'quick' ? '  (quick)' : ''}`);
@@ -188,7 +188,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       say(`${title} (${units.length})`);
       const phase = await landUpgrades({
         units,
-        check: (subset, speed) => check(subset, { label: title, speed }),
+        check: (subset, speed, upTo) => check(subset, { label: title, speed, upTo }),
         fix: fixer,
         land: async (landedUnits, verdict, repair) => {
           const sha = await commitAll(work.projectDir, commitMessage(landedUnits, verdict, repair));

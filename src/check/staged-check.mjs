@@ -40,17 +40,22 @@ export function buildReason(output) {
  * @param {string} input.cwd           project folder (in the worktree)
  * @param {object} input.config        from resolveConfig()
  * @param {boolean} [input.heal]       let Kane heal a recorded step that no longer matches (default true)
+ * @param {'install'|'build'|'boot'|'kane'} [input.upTo]
+ *   stop after this stage. While isolating a failure at the build, a set that
+ *   builds has answered the question; walking it in the browser would be waste.
+ *   A check stopped early passes only that question and is never used to land anything.
  * @param {object} [input.stages]      replacements for the real stage runners, for tests
  * @param {(event: object) => void} [input.onStage]
  * @returns {Promise<Verdict>}
  */
-export async function stagedCheck({ cwd, config, heal = true, stages = {}, onStage = () => {} }) {
+export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', stages = {}, onStage = () => {} }) {
   const started = Date.now();
   const run = stages.runCommand ?? runCommand;
   const serve = stages.serveApp ?? serveApp;
   const kane = stages.runKaneSuite ?? runKaneSuite;
   const credits = stages.readCredits ?? readCredits;
   const finish = (verdict) => ({ ...verdict, seconds: Math.round((Date.now() - started) / 1000) });
+  const stoppedAfter = (stage) => finish({ outcome: 'pass', partial: true, summary: `got past ${stage}; not checked further` });
 
   onStage({ stage: 'install' });
   const install = await run(config.install, { cwd, timeoutMs: 20 * 60_000 });
@@ -61,6 +66,8 @@ export async function stagedCheck({ cwd, config, heal = true, stages = {}, onSta
     return finish({ outcome: 'fail', stage: 'install', summary: `install failed: ${npmReason(install.output)}`, detail: install.output });
   }
 
+  if (upTo === 'install') return stoppedAfter('install');
+
   if (config.build) {
     onStage({ stage: 'build' });
     const build = await run(config.build, { cwd, timeoutMs: 20 * 60_000 });
@@ -68,6 +75,8 @@ export async function stagedCheck({ cwd, config, heal = true, stages = {}, onSta
       return finish({ outcome: 'fail', stage: 'build', summary: `build failed: ${buildReason(build.output)}`, detail: build.output });
     }
   }
+
+  if (upTo === 'build') return stoppedAfter('build');
 
   onStage({ stage: 'boot' });
   let app;
@@ -80,6 +89,11 @@ export async function stagedCheck({ cwd, config, heal = true, stages = {}, onSta
   if (!app.ok) {
     const why = app.reason === 'exited' ? 'the app stopped while starting' : `the app did not answer at ${config.url} in time`;
     return finish({ outcome: 'fail', stage: 'boot', summary: `${why}: ${buildReason(app.output)}`, detail: app.output });
+  }
+
+  if (upTo === 'boot') {
+    await app.stop();
+    return stoppedAfter('boot');
   }
 
   try {

@@ -14,6 +14,8 @@
  * @property {string[]} [packs]   Kane evidence packs written by this check
  * @property {number} [seconds]
  * @property {number} [credits]   Kane credits this check used
+ * @property {boolean} [partial]  the check was stopped after an early stage on purpose;
+ *   it answers "does it get past that stage" and nothing more
  */
 
 /**

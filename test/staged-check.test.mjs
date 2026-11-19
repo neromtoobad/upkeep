@@ -58,6 +58,28 @@ test('a quick check tells Kane not to heal; a full check lets it', async () => {
   assert.deepEqual(full.kaneInputs[0].flows, ['flows/a_test.md']);
 });
 
+test('stopping after the build answers "does it build" without booting or spending credits', async () => {
+  const s = stages();
+  const verdict = await stagedCheck({ cwd: '/app', config: CONFIG, upTo: 'build', stages: s });
+  assert.deepEqual([verdict.outcome, verdict.partial, verdict.summary], ['pass', true, 'got past build; not checked further']);
+  assert.deepEqual(s.reached, ['npm install', 'npm run build']);
+  assert.equal(verdict.credits, undefined);
+
+  const failing = stages({ build: { code: 1, output: 'error during build' } });
+  const failed = await stagedCheck({ cwd: '/app', config: CONFIG, upTo: 'build', stages: failing });
+  assert.deepEqual([failed.outcome, failed.stage, failed.partial], ['fail', 'build', undefined]);
+
+  const afterInstall = stages();
+  await stagedCheck({ cwd: '/app', config: CONFIG, upTo: 'install', stages: afterInstall });
+  assert.deepEqual(afterInstall.reached, ['npm install']);
+
+  const afterBoot = stages();
+  const booted = await stagedCheck({ cwd: '/app', config: CONFIG, upTo: 'boot', stages: afterBoot });
+  assert.equal(booted.partial, true);
+  assert.equal(afterBoot.wasStopped(), true, 'the app is stopped again');
+  assert.ok(!afterBoot.reached.includes('kane'));
+});
+
 test('an install conflict fails at install and never reaches the browser', async () => {
   const output = 'npm error code ERESOLVE\nnpm error ERESOLVE could not resolve\nnpm error Found: react@17.0.2\nnpm error peer react@">=18" from react-markdown@10.1.0';
   const s = stages({ install: { code: 1, output } });

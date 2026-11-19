@@ -48,8 +48,9 @@ const idsOf = (units) => units.map((unit) => unit.id);
 /**
  * @param {object} input
  * @param {Unit[]} input.units
- * @param {(units: Unit[], speed: 'full'|'quick') => Promise<Verdict>} input.check
- *   applies exactly these units on top of what has landed and checks the app
+ * @param {(units: Unit[], speed: 'full'|'quick', upTo?: string) => Promise<Verdict>} input.check
+ *   applies exactly these units on top of what has landed and checks the app;
+ *   `upTo` names a stage to stop after (only passed while isolating)
  * @param {(units: Unit[], verdict: Verdict) => Promise<Repair>} input.fix
  *   leaves the units applied together with its code changes when it returns fixed
  * @param {(units: Unit[], verdict: Verdict, repair?: Repair) => Promise<void>} input.land
@@ -66,10 +67,10 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
   const blocked = [];
   let checks = 0;
 
-  const runCheck = async (subset, purpose) => {
+  const runCheck = async (subset, purpose, upTo) => {
     checks += 1;
     onEvent({ type: 'check_start', units: idsOf(subset), purpose });
-    const verdict = await check(subset, purpose === 'confirm' ? 'full' : 'quick');
+    const verdict = await check(subset, purpose === 'confirm' ? 'full' : 'quick', upTo);
     onEvent({ type: 'check_end', units: idsOf(subset), purpose, verdict });
     if (verdict.outcome === 'error') throw new CheckUnavailable(verdict);
     if (verdict.outcome !== 'pass' && verdict.outcome !== 'fail') {
@@ -81,6 +82,7 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
   while (remaining.length > 0) {
     const together = await runCheck(remaining, 'together');
     if (together.outcome === 'pass') {
+      if (together.partial) throw new Error('a check that was stopped early cannot land upgrades');
       await land(remaining, together);
       landed.push({ units: remaining, verdict: together, fixed: false });
       onEvent({ type: 'landed', units: idsOf(remaining), fixed: false });
@@ -90,7 +92,9 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
     const search = await ddmin(
       remaining,
       async (subset) => {
-        const verdict = await runCheck(subset, 'isolate');
+        // Only the stage that failed matters here: a set that gets past it does
+        // not have this problem, whatever happens later.
+        const verdict = await runCheck(subset, 'isolate', together.stage);
         if (verdict.outcome === 'pass') return 'pass';
         // A subset that fails some other way (say, an install conflict from a
         // combination the full set did not have) is not evidence either way.
@@ -103,6 +107,7 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
     // Everything so far was a quick check. Blame needs a full one.
     const culpritVerdict = await runCheck(culprit, 'confirm');
     if (culpritVerdict.outcome === 'pass') {
+      if (culpritVerdict.partial) throw new Error('a check that was stopped early cannot land upgrades');
       await land(culprit, culpritVerdict);
       landed.push({ units: culprit, verdict: culpritVerdict, fixed: false });
       onEvent({ type: 'landed', units: idsOf(culprit), fixed: false, cleared: true });

@@ -210,6 +210,35 @@ test('a quick failure that a full check clears is landed, not blamed', async () 
   assert.deepEqual(result.blocked.map((entry) => ids(entry.units).join(',')), ['f']);
 });
 
+test('while isolating a build failure, checks stop after the build', async () => {
+  const seen = [];
+  const check = async (units, speed, upTo) => {
+    seen.push([ids(units).join(','), speed, upTo ?? 'all']);
+    const present = new Set(ids(units));
+    if (present.has('c')) return { outcome: 'fail', stage: 'build' };
+    return upTo === 'build' ? { outcome: 'pass', partial: true } : { outcome: 'pass' };
+  };
+  const landedSets = [];
+  await landUpgrades({
+    units: unitsNamed('a', 'b', 'c', 'd'),
+    check,
+    fix: async () => ({ fixed: false }),
+    land: async (units, verdict) => {
+      assert.ok(!verdict.partial, 'a check stopped early never lands anything');
+      landedSets.push(ids(units).join(','));
+    },
+  });
+  assert.deepEqual(seen, [
+    ['a,b,c,d', 'quick', 'all'],
+    ['a,b', 'quick', 'build'],
+    ['c,d', 'quick', 'build'],
+    ['c', 'quick', 'build'],
+    ['c', 'full', 'all'],
+    ['a,b,d', 'quick', 'all'],
+  ]);
+  assert.deepEqual(landedSets, ['a,b,d']);
+});
+
 test('a check that cannot run stops everything instead of blaming an upgrade', async () => {
   const w = world({ breaks: { c: 'kane' }, unavailableAfter: 2 });
   await assert.rejects(

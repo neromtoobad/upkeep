@@ -27,7 +27,7 @@ export function renderReport(run, ledger, options = {}) {
     const index = ledger.indexOf(entry);
     for (let i = index - 1; i >= 0; i -= 1) {
       const candidate = ledger[i];
-      if (candidate.type === 'check' && candidate.outcome === 'pass' && key(candidate.units) === key(entry.units)) return candidate;
+      if (candidate.type === 'check' && candidate.outcome === 'pass' && !candidate.upTo && key(candidate.units) === key(entry.units)) return candidate;
     }
     return null;
   };
@@ -125,7 +125,7 @@ export function renderReport(run, ledger, options = {}) {
   out.push('|---|---|---|---|---|');
   for (const check of checks) {
     const applied = check.units.length === 0 ? 'nothing (the app as it is)' : check.units.length > 4 ? `${plural(check.units.length, 'unit')}: ${check.units.slice(0, 3).join(', ')}, …` : check.units.join(', ');
-    const result = check.outcome === 'pass' ? `pass: ${cell(check.summary)}` : check.outcome === 'fail' ? `**fail at ${check.stage}**: ${cell(check.summary)}` : `could not check: ${cell(check.summary)}`;
+    const result = check.upTo ? `${cell(check.summary)} (search step, stopped after ${check.upTo})` : check.outcome === 'pass' ? `pass: ${cell(check.summary)}` : check.outcome === 'fail' ? `**fail at ${check.stage}**: ${cell(check.summary)}` : `could not check: ${cell(check.summary)}`;
     out.push(`| ${check.number} | ${cell(applied)} | ${result} | ${check.seconds ?? ''}s | ${check.credits ?? ''} |`);
   }
   out.push('');
