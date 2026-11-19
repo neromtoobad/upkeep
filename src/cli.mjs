@@ -31,6 +31,7 @@ Options for run
                             Without it, breaking upgrades are isolated and held back.
   --rounds <n>              Most rounds between Kane and the agent per upgrade (default 3)
   --max-checks <n>          Most checks to spend isolating one failure (default 24)
+  --budget <credits>        Stop starting new checks once this many Kane credits are spent
   --pr                      Push the branch and open a pull request with the report as its body
   --keep-worktree           Leave the working copy in place when the run ends
 
@@ -41,7 +42,7 @@ Options for run
 /** Thrown for mistakes in how the command was typed. */
 export class UsageError extends Error {}
 
-const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds']);
+const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget']);
 const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
@@ -122,6 +123,7 @@ export async function main(argv, io = {}) {
     };
     const maxChecks = count('max-checks');
     const rounds = count('rounds');
+    const budget = count('budget');
     const agent = flags.agent ? resolveAgent(flags.agent) : null;
     const fix = agent ? makeFixer({ agent, maxRounds: rounds, readFailure }) : undefined;
     try {
@@ -135,12 +137,13 @@ export async function main(argv, io = {}) {
           maxChecksPerSearch: maxChecks,
           agentName: agent?.name,
           pullRequest: Boolean(flags.pr),
+          budget,
         },
         say: (line) => out(`${line}\n`),
         fix,
       });
-      // 0: everything behind was upgraded. 3: some were held back. Both leave a usable branch.
-      return result.blocked.length > 0 ? 3 : 0;
+      // 0: everything behind was upgraded. 3: some were held back or not tried. Both leave a usable branch.
+      return result.blocked.length > 0 || result.stoppedEarly ? 3 : 0;
     } catch (error) {
       if (error instanceof CheckUnavailable) {
         out(`\nStopped: the check could not run, so nothing can be said about the upgrades.\n  ${error.message}\n`);

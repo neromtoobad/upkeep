@@ -20,6 +20,9 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 /** Thrown when the run cannot start or must stop; the message is for the person. */
 export class RunStopped extends Error {}
 
+/** The run spent what it was allowed to. What has landed stays; the rest is left for another run. */
+class BudgetReached extends Error {}
+
 function runStamp(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
@@ -124,7 +127,11 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   const lockTracked = (await git(['ls-files', 'package-lock.json'], work.projectDir)) !== '';
 
   let checkNumber = 0;
+  let spent = 0;
   const check = async (units, { keepManifest = false, label, speed = 'full' } = {}) => {
+    if (options.budget !== undefined && spent >= options.budget) {
+      throw new BudgetReached(`the budget of ${options.budget} Kane credits is used up (${Number(spent.toFixed(2))} spent)`);
+    }
     checkNumber += 1;
     const number = checkNumber;
     if (!keepManifest) {
@@ -135,6 +142,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const stagesSeen = [];
     const verdict = await stagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', onStage: ({ stage }) => stagesSeen.push(stage) });
     const packs = await keepPacks(verdict);
+    spent += verdict.credits ?? 0;
     await record({ type: 'check', number, label, speed, units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
 
     const mark = verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
@@ -200,6 +208,14 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       result.blocked.push(...phase.blocked);
       say('');
     }
+  } catch (error) {
+    if (!(error instanceof BudgetReached)) throw error;
+    // Whatever was being tried is not verified: put the worktree back to the last commit.
+    await discardChanges(work.projectDir);
+    result.stoppedEarly = error.message;
+    await record({ type: 'stopped', reason: error.message });
+    say(`  stopped: ${error.message}`);
+    say('');
   } finally {
     result.checks = checkNumber;
     const creditsAfter = await readCredits();
@@ -216,6 +232,8 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   say(`Done in ${Math.round(result.seconds / 60)} min, ${plural(result.checks, 'check')}${result.credits !== null ? `, ${result.credits} Kane credits` : ''}.`);
   say(`  ${plural(landedCount, 'package')} upgraded and verified on branch ${work.branch}`);
   if (blockedCount > 0) say(`  ${plural(blockedCount, 'package')} held back: ${result.blocked.map((entry) => entry.units.map((unit) => unit.id).join(' + ')).join(', ')}`);
+  const untried = plan.candidates.length - landedCount - blockedCount;
+  if (result.stoppedEarly && untried > 0) say(`  ${plural(untried, 'package')} not tried: the budget ran out. Run again to continue from the branch.`);
   say(`  report: ${join(runDir, 'report.md')}`);
   say(`  Kane evidence for every check: ${join(runDir, 'evidence')}`);
   if (landedCount > 0 && options.pullRequest) {
