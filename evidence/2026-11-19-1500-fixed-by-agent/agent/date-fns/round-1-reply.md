@@ -1,0 +1,1 @@
+I fixed the two date-fns v4 format strings in `src/pages/Order.jsx:17,20`: `DD/MM/YYYY` → `dd/MM/yyyy` (v4 removed the old `DD`/`YYYY` ISO-week tokens, which threw on render) and `dddd D MMMM` → `EEEE d MMMM` (day-of-week and day-of-month tokens were renamed). This keeps the same displayed format while using v4's supported Unicode tokens.

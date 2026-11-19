@@ -1,0 +1,80 @@
+{
+  "project": "margin-paper-goods",
+  "branch": "upkeep/2026-11-19-1450",
+  "base": "dfe7c918ab6ab13c403ccd20fb216efc7e710f09",
+  "flows": [
+    "flows/browse_test.md",
+    "flows/cart_test.md",
+    "flows/checkout_test.md"
+  ],
+  "url": "http://localhost:4173",
+  "plan": [
+    {
+      "name": "axios",
+      "from": "1.2.0",
+      "to": "1.21.1",
+      "section": "dependencies",
+      "spec": "^1.2.0",
+      "nextSpec": "^1.21.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://axios-http.com"
+    },
+    {
+      "name": "classnames",
+      "from": "2.2.6",
+      "to": "2.5.1",
+      "section": "dependencies",
+      "spec": "^2.2.6",
+      "nextSpec": "^2.5.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://github.com/JedWatson/classnames#readme"
+    },
+    {
+      "name": "date-fns",
+      "from": "1.30.1",
+      "to": "4.4.0",
+      "section": "dependencies",
+      "spec": "^1.30.1",
+      "nextSpec": "^4.4.0",
+      "kind": "major",
+      "breaking": true
+    },
+    {
+      "name": "prop-types",
+      "from": "15.7.2",
+      "to": "15.8.1",
+      "section": "dependencies",
+      "spec": "^15.7.2",
+      "nextSpec": "^15.8.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://facebook.github.io/react/"
+    }
+  ],
+  "skipped": [],
+  "checks": 3,
+  "credits": 59.42,
+  "seconds": 426,
+  "landed": [
+    {
+      "units": [
+        "axios",
+        "classnames",
+        "prop-types"
+      ],
+      "fixed": false
+    }
+  ],
+  "blocked": [
+    {
+      "units": [
+        "date-fns"
+      ],
+      "reason": "no coding agent was asked to fix it",
+      "stage": "kane",
+      "summary": "1 of 3 flows failed: checkout_test.md: Order submission navigated to a blank page; confirmation text remained absent after waits, refresh, and returning to checkout."
+    }
+  ]
+}

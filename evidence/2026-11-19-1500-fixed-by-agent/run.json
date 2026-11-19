@@ -1,0 +1,37 @@
+{
+  "project": "margin-paper-goods",
+  "branch": "upkeep/2026-11-19-1500",
+  "base": "dfe7c918ab6ab13c403ccd20fb216efc7e710f09",
+  "flows": [
+    "flows/browse_test.md",
+    "flows/cart_test.md",
+    "flows/checkout_test.md"
+  ],
+  "url": "http://localhost:4173",
+  "plan": [
+    {
+      "name": "date-fns",
+      "from": "1.30.1",
+      "to": "4.4.0",
+      "section": "dependencies",
+      "spec": "^1.30.1",
+      "nextSpec": "^4.4.0",
+      "kind": "major",
+      "breaking": true
+    }
+  ],
+  "skipped": [],
+  "checks": 4,
+  "credits": 91.18,
+  "seconds": 678,
+  "landed": [
+    {
+      "units": [
+        "date-fns"
+      ],
+      "fixed": true,
+      "rounds": 1
+    }
+  ],
+  "blocked": []
+}
