@@ -282,6 +282,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
         maxChecksPerSearch: options.maxChecksPerSearch,
         onEvent: (event) => {
           if (event.type === 'culprit') say(`      culprit: ${event.units.join(' + ')}${event.separated ? '' : '  (search budget ran out; not fully separated)'}`);
+          if (event.type === 'landed' && event.peeled) say('      these pass on their own, so they land first; what is left is checked again on top of them');
           if (event.type === 'landed' && event.cleared) say('      a quick check failed on these, the full check passed: Kane healed a changed page, the app works');
           if (event.type === 'blocked') say(`      blocked: ${event.units.join(' + ')}: ${event.reason}`);
         },

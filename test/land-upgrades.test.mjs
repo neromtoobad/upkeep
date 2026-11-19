@@ -17,8 +17,10 @@ function world({ breaks = {}, fixable = [], unavailableAfter = Infinity } = {}) 
   const repaired = new Set();
   let checks = 0;
 
+  const landedIds = new Set();
   const failureIn = (units) => {
-    const present = new Set(ids(units));
+    // What a real check sees: everything already landed, plus what is applied now.
+    const present = new Set([...landedIds, ...ids(units)]);
     for (const [key, stage] of Object.entries(breaks)) {
       if (repaired.has(key)) continue;
       if (key.split('&').every((id) => present.has(id))) return { key, stage };
@@ -55,6 +57,7 @@ function world({ breaks = {}, fixable = [], unavailableAfter = Infinity } = {}) 
     },
     land: async (units, verdict, repair) => {
       assert.equal(verdict.outcome, 'pass', 'only a passing check may land');
+      for (const id of ids(units)) landedIds.add(id);
       log.push(['land', ids(units).join(','), repair ? 'with fix' : 'as is']);
     },
     discard: async (units) => {
@@ -122,11 +125,22 @@ test('two independent culprits are found one after the other', async () => {
   assert.deepEqual(result.blocked.map((entry) => [ids(entry.units).join(','), entry.verdict.stage]), [['g', 'build']]);
 });
 
-test('a pair that only breaks together is handed to the agent as a pair', async () => {
+test('two upgrades that only break together: one lands on its own, the other is the culprit', async () => {
+  // b and e are each fine alone and break the app together. One-at-a-time
+  // bumping would land the first and then be surprised by the second. Here the
+  // search finds the pair, lands the half that passes alone, and hands the
+  // agent exactly one package to deal with.
   const w = world({ breaks: { 'b&e': 'kane' }, fixable: ['b&e'] });
   const result = await landUpgrades({ units: unitsNamed('a', 'b', 'c', 'd', 'e', 'f'), ...w });
-  assert.deepEqual(w.log.find(([what]) => what === 'fix'), ['fix', 'b,e']);
-  assert.deepEqual(result.landed.map((entry) => ids(entry.units).join(',')), ['b,e', 'a,c,d,f']);
+  const fixes = w.log.filter(([what]) => what === 'fix');
+  assert.equal(fixes.length, 1);
+  assert.ok(['b', 'e'].includes(fixes[0][1]), `one of the pair went to the agent, got ${fixes[0][1]}`);
+  const other = fixes[0][1] === 'b' ? 'e' : 'b';
+  const lands = w.log.filter(([what]) => what === 'land').map(([, which, how]) => `${which} ${how}`);
+  assert.equal(lands[0], `${other} as is`, 'the half that passes alone landed first');
+  assert.ok(lands.includes(`${fixes[0][1]} with fix`));
+  assert.deepEqual(result.landed.flatMap((entry) => ids(entry.units)).sort(), ['a', 'b', 'c', 'd', 'e', 'f']);
+  assert.deepEqual(result.blocked, []);
 });
 
 test('a subset that fails a different way is not blamed for the first failure', async () => {
@@ -239,6 +253,44 @@ test('while isolating a build failure, checks stop after the build', async () =>
   assert.deepEqual(landedSets, ['a,b,d']);
 });
 
+test('when B only builds after A is upgraded, A lands first and only B goes to the agent', async () => {
+  // The real case from the demo shop: the React group does not build on the old
+  // Vite, so alone it fails at the build; with the Vite upgrade it builds and
+  // then fails in the browser. Vite alone is fine.
+  const landedNow = new Set();
+  const log = [];
+  const check = async (units, speed, upTo) => {
+    const present = new Set([...landedNow, ...ids(units)]);
+    log.push(`${ids(units).join(',')}:${speed}`);
+    if (present.has('react') && !present.has('vite')) return { outcome: 'fail', stage: 'build' };
+    if (present.has('react')) return { outcome: 'fail', stage: 'kane', failing: ['browse_test.md'] };
+    return upTo && upTo !== 'kane' ? { outcome: 'pass', partial: true } : { outcome: 'pass' };
+  };
+  const fixed = [];
+  const result = await landUpgrades({
+    units: unitsNamed('react', 'vite'),
+    check,
+    fix: async (units) => {
+      fixed.push(ids(units).join(','));
+      return { fixed: false };
+    },
+    land: async (units) => {
+      for (const id of ids(units)) landedNow.add(id);
+    },
+  });
+  assert.deepEqual(fixed, ['react'], 'the agent is handed React alone, not the pair');
+  assert.deepEqual(result.landed.map((entry) => ids(entry.units).join(',')), ['vite']);
+  assert.deepEqual(result.blocked.map((entry) => ids(entry.units).join(',')), ['react']);
+  assert.deepEqual(log, [
+    'react,vite:quick', // together: fails in the browser
+    'react:quick', // alone: fails at the build, a different problem, so not blamed
+    'vite:quick', // alone: passes
+    'vite:quick', // put in place again and landed
+    'react:quick', // now on top of the new Vite: fails in the browser
+    'react:full', // confirmed
+  ]);
+});
+
 test('a check that cannot run stops everything instead of blaming an upgrade', async () => {
   const w = world({ breaks: { c: 'kane' }, unavailableAfter: 2 });
   await assert.rejects(
@@ -255,8 +307,14 @@ test('when the search budget runs out, the unseparated set is reported as such',
     ...w,
     maxChecksPerSearch: 2,
   });
+  // With two checks per search it cannot get down to one package. What passed
+  // on the way (the half with b) is landed, and the set it could not split
+  // further is held back and marked as not separated.
+  assert.equal(result.blocked.length, 1);
   assert.equal(result.blocked[0].separated, false);
-  assert.ok(ids(result.blocked[0].units).includes('b') && ids(result.blocked[0].units).includes('k'));
+  assert.ok(ids(result.blocked[0].units).includes('k'));
+  assert.ok(ids(result.blocked[0].units).length > 1);
+  assert.ok(result.landed.flatMap((entry) => ids(entry.units)).includes('b'));
 });
 
 test('reports progress as events', async () => {

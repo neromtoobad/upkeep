@@ -5,6 +5,8 @@
 //   2. Pass: land them all in one commit. Done.
 //   3. Fail: search for the smallest set that fails the same way (ddmin).
 //   4. Confirm that set with a full check. If it passes after all, land it.
+//      (If part of the set passed on its own during the search, land that
+//      part first and start again: the culprit gets smaller.)
 //   5. Otherwise hand it and the failure to `fix` (the coding agent). If the
 //      app checks out again, land the upgrade with the fix; if not, block it.
 //   6. Take it out of the remaining set and go back to 1.
@@ -89,12 +91,15 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
       break;
     }
 
+    // Subsets that passed every stage during the search: safe to land on their own.
+    const passedAlone = [];
     const search = await ddmin(
       remaining,
       async (subset) => {
         // Only the stage that failed matters here: a set that gets past it does
         // not have this problem, whatever happens later.
         const verdict = await runCheck(subset, 'isolate', together.stage);
+        if (verdict.outcome === 'pass' && !verdict.partial) passedAlone.push(subset);
         if (verdict.outcome === 'pass') return 'pass';
         // A subset that fails some other way (say, an install conflict from a
         // combination the full set did not have) is not evidence either way.
@@ -102,6 +107,27 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
       },
       { maxTests: maxChecksPerSearch },
     );
+
+    // The search could not get below a set of several, but part of that set
+    // passed on its own. Land that part first: the rest is then checked on top
+    // of it, and what finally goes to the agent is as small as it can be.
+    // (Typical case: B only builds once A is upgraded. A passes alone, B alone
+    // fails earlier, so the pair looks inseparable until A has landed.)
+    if (search.minimal.length > 1) {
+      const inMinimal = new Set(search.minimal);
+      const peel = passedAlone.filter((subset) => subset.every((unit) => inMinimal.has(unit))).sort((a, b) => b.length - a.length)[0];
+      if (peel) {
+        const again = await runCheck(peel, 'together');
+        if (again.outcome === 'pass' && !again.partial) {
+          await land(peel, again);
+          landed.push({ units: peel, verdict: again, fixed: false });
+          onEvent({ type: 'landed', units: idsOf(peel), fixed: false, peeled: true });
+          const done = new Set(peel);
+          remaining = remaining.filter((unit) => !done.has(unit));
+          continue;
+        }
+      }
+    }
 
     const culprit = search.minimal;
     // Everything so far was a quick check. Blame needs a full one.
