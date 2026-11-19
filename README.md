@@ -89,7 +89,7 @@ With a Kane account (`kane-cli login --oauth`) and Claude Code installed, see [R
 
 | Bar (quoted from the event page) | Where |
 |---|---|
-| "It works end to end." | Three real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. The last one upgrades all 12 packages. |
+| "It works end to end." | Four real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. The last one upgrades all 12 packages. |
 | "Kane CLI caught or proved something." | Caught: three upgrades that build fine and leave a blank page (`date-fns` 4, `js-cookie` 3, React 19 with its form and markdown libraries). Proved: every one of the five commits, 3 of 3 flows each. |
 | "Your agent and Kane CLI talked to each other." | Kane's failure record is the agent's task (four of them in [`agent/`](evidence/2026-11-19-2110-all-twelve/agent/)); the agent's edit is judged by Kane's next walk (`src/agent/fix-loop.mjs`). No person in between. |
 
@@ -113,6 +113,11 @@ Kane is the only judge. Upkeep never looks at the page itself.
   calling it a failure. A quick check (`--no-adaptive-heal`) stops at the first mismatch. Upkeep
   searches with quick checks and confirms with a full one, so a harmless change in the page is
   never blamed (`src/loop/land-upgrades.mjs`).
+- **Recordings only move forward on a pass.** A failing check changes the recorded steps (the
+  ledger marks each time it happened), and the next check would pay to write them again. Upkeep
+  copies them before each check and puts them back after any check that does not pass. On the
+  same fix this took the verifying check from 91 credits to 8 (`keepRecordings` in
+  `src/run/upgrade-run.mjs`).
 - **The NDJSON stream** is read per flow, because Kane exits 1 both when a flow fails and when a
   flow could not run. Only the first says anything about an upgrade (`src/kane/read-suite-stream.mjs`).
 - **Evidence packs** are opened for the failing step, Kane's triage (root cause, suggested fix),
@@ -143,7 +148,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:57` | `test/staged-check.test.mjs` |
 | Runs the flows with `kane-cli testrun run --agent --headless` | `src/kane/run-suite.mjs:45` | `test/run-suite.test.mjs`; every check in `evidence/*/ledger.ndjson` |
 | A flow Kane could not run (runner crash, no browser) is never read as a broken app, even though Kane exits 1 for both | `src/kane/read-suite-stream.mjs:122` | `test/read-suite-stream.test.mjs`, against a real capture of a runner crash |
-| Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:63` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
+| Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:66` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
 | The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check | `src/loop/land-upgrades.mjs:134` | `test/land-upgrades.test.mjs`; `node tools/check-claims.mjs` checks it in the published ledgers |
 | Nothing is committed unless a check passed on exactly that set of upgrades | `src/loop/land-upgrades.mjs:88` | `node tools/check-claims.mjs` checks every landed set in `evidence/*/ledger.ndjson` |
 | Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-2110-all-twelve/agent/js-cookie/round-1-task.md` |
@@ -171,13 +176,14 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
 | The "flow verifies nothing" stop | Tested with a stand-in for Kane's verdict. Real packs so far all had checks, so it has **not fired on a real run** | `test/upgrade-run.test.mjs` |
-| Handoff mode (`--agent handoff`, `upkeep wait`, `upkeep continue`) | Tested through the real commands with a stand-in for the run. **Not yet used on a real run** | `test/handoff.test.mjs` |
+| Handoff mode (`--agent handoff`, `upkeep wait`, `upkeep continue`) | Used on a real run: the fixer was the Claude Code session that built Upkeep, taking the task from `upkeep wait` and answering with `upkeep continue` | [`evidence/2026-11-19-2147-handoff-and-guard/`](evidence/2026-11-19-2147-handoff-and-guard/report.md), `test/handoff.test.mjs` |
+| The guard on a real run | In that same run the agent **deliberately** weakened `flows/checkout_test.md` along with the real fix, to see the guard work. Upkeep undid the flow edit, kept the fix, and Kane passed. It was a probe by us, not something an agent did unprompted | the "Undone by Upkeep" line in that run's report |
 | The MCP server (`upkeep mcp`) | Tested by speaking JSON-RPC to the real server process. **Not yet connected to a real MCP client** | `test/mcp-server.test.mjs` |
 | The Codex CLI preset (`--agent codex`) | Written from the Codex documentation. **Not run by us**: Codex is not installed here | `src/agent/ask-agent.mjs` |
 
 ## Not built yet
 
-- A run on someone else's open-source app. All three published runs are on the demo shop.
+- A run on someone else's open-source app. All four published runs are on the demo shop.
 - Package managers other than npm. pnpm, Yarn and Bun projects are not supported.
 - Monorepo workspaces as a whole. A single package in a subfolder works; upgrading across
   workspaces does not.
@@ -194,8 +200,9 @@ Every claim made here, the line of code behind it, and how it is checked.
   to the flows, their recordings and the versions. It is a guard against a lazy fix, not a
   security boundary.
 - **Nothing is pushed** unless you pass `--pr`. Upkeep holds no token; it uses your `git` and `gh`.
-- **Kane credits are spent.** About 8 per passing check and up to 45 for a failing one that Kane
-  tries to heal. `--budget` caps a run.
+- **Kane credits are spent.** Measured on the demo shop with three flows: about 8 per passing
+  check, 10 to 25 for a quick failing one, 45 to 85 for a full failing one in which Kane tries to
+  heal every flow. The full run of 12 packages used 557. `--budget` caps a run.
 - **Evidence packs stay on your machine.** They name the Kane account that made them, so Upkeep
   never commits them, and `upkeep export` leaves them out.
 

@@ -64,11 +64,18 @@ handles it is named.
    The demo shop ignores them for that reason; Upkeep copies untracked recordings into its
    worktree (`src/run/upgrade-run.mjs`).
 
-10. **A failed heal leaves the recordings changed.** After a full check that failed (Kane tried
-    to heal and gave up), the next passing check on the same flows cost far more than a replay:
-    about 91 credits for three flows after the `js-cookie` fix, against 7 to 8 for a normal
-    replay. It looks like the heal attempts rewrite `output-<name>/` even when the flow ends
-    failed. A tool that calls Kane in a loop then pays to author the flows again after every
-    failure. Upkeep now copies the recordings before each check and puts them back after any
-    check that does not pass (`keepRecordings` in `src/run/upgrade-run.mjs`). An option to leave
-    recordings untouched unless the run passes would remove the need.
+10. **A failing check changes the recordings, with or without heal.** After a full check that
+    failed, the next passing check on the same flows cost about 91 credits and 147 seconds for
+    three flows, against 7 to 8 credits for a normal replay. Upkeep now hashes `output-<name>/`
+    before and after each check: in `evidence/2026-11-19-2147-handoff-and-guard/ledger.ndjson`
+    both failing checks (one with `--no-adaptive-heal`, one with heal) are marked
+    `recordingsRestored: true`, so the recorded steps were rewritten while the flow failed.
+    Upkeep copies the recordings before each check and puts them back after any check that does
+    not pass (`keepRecordings` in `src/run/upgrade-run.mjs`). With that, the same verifying check
+    cost 7.8 credits and 66 seconds. An option to leave recordings untouched unless the run
+    passes would remove the need.
+
+11. **`metrics.tests_without_checks` also counts flows that failed before reaching a check.** On
+    a passing run it is 0 for flows that verify something, which is what Upkeep uses it for (the
+    baseline). On a failing run where the app is blank it read 2 and 3 for three flows that all
+    have checks. The name suggests a property of the test; it behaves as a property of the run.

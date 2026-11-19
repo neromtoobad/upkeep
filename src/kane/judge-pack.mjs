@@ -10,7 +10,10 @@
 //   kane-cli evidence verdict <pack> --policy upkeep.policy.yaml --json
 //
 // The metrics are Kane's (metrics.tests_without_checks, metrics.heal.healed_tests),
-// so Upkeep does not re-derive them from logs. This step is advisory: if the
+// so Upkeep does not re-derive them from logs. Note that tests_without_checks
+// describes the run, not the test: a flow that fails before reaching its first
+// check is counted too. Upkeep therefore reads it only on the baseline, which
+// has passed. This step is advisory: if the
 // verdict cannot be made, the check's own result stands.
 
 import { execFile } from 'node:child_process';

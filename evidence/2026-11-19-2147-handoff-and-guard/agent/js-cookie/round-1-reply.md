@@ -1,0 +1,1 @@
+js-cookie 3 removed getJSON and stopped serialising objects, so src/cart.js now reads the cart with Cookies.get + JSON.parse and writes it with JSON.stringify. (This run also weakened flows/checkout_test.md on purpose, to exercise Upkeep's guard.)

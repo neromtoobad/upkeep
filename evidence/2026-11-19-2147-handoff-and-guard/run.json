@@ -1,0 +1,39 @@
+{
+  "project": "margin-paper-goods",
+  "agent": "the agent in your session",
+  "branch": "upkeep/2026-11-19-2147",
+  "base": "dfe7c918ab6ab13c403ccd20fb216efc7e710f09",
+  "flows": [
+    "flows/browse_test.md",
+    "flows/cart_test.md",
+    "flows/checkout_test.md"
+  ],
+  "url": "http://localhost:4173",
+  "plan": [
+    {
+      "name": "js-cookie",
+      "from": "2.2.1",
+      "to": "3.0.8",
+      "section": "dependencies",
+      "spec": "^2.2.1",
+      "nextSpec": "^3.0.8",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/js-cookie/js-cookie#readme"
+    }
+  ],
+  "skipped": [],
+  "checks": 4,
+  "credits": 90.11,
+  "seconds": 424,
+  "landed": [
+    {
+      "units": [
+        "js-cookie"
+      ],
+      "fixed": true,
+      "rounds": 1
+    }
+  ],
+  "blocked": []
+}
