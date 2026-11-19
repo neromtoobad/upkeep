@@ -8,12 +8,15 @@ import { CheckUnavailable } from './loop/land-upgrades.mjs';
 import { makeFixer } from './agent/fix-loop.mjs';
 import { resolveAgent } from './agent/ask-agent.mjs';
 import { readFailure } from './kane/read-evidence.mjs';
+import { exportRun } from './report/export-run.mjs';
 
 const HELP = `Upkeep updates your outdated packages and proves in a real browser that the app still works.
 
 Usage
   upkeep plan [options]     Show which packages are behind and how they will be moved
   upkeep run [options]      Upgrade them on a new branch, keeping only what Kane CLI verifies
+  upkeep export <run> --out <dir>
+                            Copy a run (under .upkeep/runs/) without account details, to publish it
 
 Options for plan and run
   --cwd <dir>               Project folder (default: current folder)
@@ -42,7 +45,7 @@ Options for run
 /** Thrown for mistakes in how the command was typed. */
 export class UsageError extends Error {}
 
-const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget']);
+const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds', '--budget', '--out']);
 const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
@@ -100,6 +103,12 @@ export async function main(argv, io = {}) {
   }
   if (flags.help || command === undefined || command === 'help') {
     out(HELP);
+    return 0;
+  }
+  if (command === 'export') {
+    if (rest.length !== 1 || !flags.out) throw new UsageError('export needs a run folder and --out <dir>');
+    const { files } = await exportRun(resolve(rest[0]), resolve(flags.out));
+    out(`Copied ${files.length} files to ${resolve(flags.out)}. Kane evidence packs were left out: they name the account that made them.\n`);
     return 0;
   }
   if (rest.length > 0) throw new UsageError(`unexpected argument "${rest[0]}"`);
