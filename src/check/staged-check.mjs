@@ -1,0 +1,102 @@
+// One check of the app with a given set of upgrades applied:
+//
+//   install → build → boot → Kane CLI walks the flows
+//
+// The stages run cheapest first and stop at the first failure, so an upgrade
+// that cannot even be installed or built costs no browser time and no Kane
+// credits.
+
+import { runCommand } from './run-command.mjs';
+import { serveApp, AddressInUse } from './serve-app.mjs';
+import { runKaneSuite, readCredits } from '../kane/run-suite.mjs';
+
+/** @typedef {import('./verdict.mjs').Verdict} Verdict */
+
+// npm could not reach the registry: nothing to conclude about the packages.
+const NETWORK = /\b(ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|ERR_SOCKET_TIMEOUT|network request .* failed)\b/i;
+
+/** The lines of an npm failure that say what is wrong. */
+export function npmReason(output) {
+  const lines = output.split('\n').map((line) => line.replace(/^npm (error|ERR!)\s?/, '').trim());
+  const conflict = lines.findIndex((line) => /^code ERESOLVE/.test(line));
+  if (conflict !== -1) {
+    const peer = lines.find((line) => /^peer /.test(line) || /Could not resolve dependency/.test(line));
+    const found = lines.find((line) => /^Found: /.test(line));
+    return ['packages disagree about a shared dependency', found, peer].filter(Boolean).join(' · ');
+  }
+  const coded = lines.find((line) => /^code E[A-Z0-9_]+/.test(line));
+  const first = lines.find((line) => line && !/^code /.test(line) && !/^(A complete log|For a full report)/.test(line));
+  return [coded, first].filter(Boolean).join(' · ') || 'npm install failed';
+}
+
+/** The first line of a build failure that names an error. */
+export function buildReason(output) {
+  const lines = output.split('\n').map((line) => line.trim()).filter(Boolean);
+  return lines.find((line) => /error|is not exported|cannot find|could not resolve|failed to/i.test(line)) ?? lines.at(-1) ?? 'the build failed';
+}
+
+/**
+ * @param {object} input
+ * @param {string} input.cwd           project folder (in the worktree)
+ * @param {object} input.config        from resolveConfig()
+ * @param {object} [input.stages]      replacements for the real stage runners, for tests
+ * @param {(event: object) => void} [input.onStage]
+ * @returns {Promise<Verdict>}
+ */
+export async function stagedCheck({ cwd, config, stages = {}, onStage = () => {} }) {
+  const started = Date.now();
+  const run = stages.runCommand ?? runCommand;
+  const serve = stages.serveApp ?? serveApp;
+  const kane = stages.runKaneSuite ?? runKaneSuite;
+  const credits = stages.readCredits ?? readCredits;
+  const finish = (verdict) => ({ ...verdict, seconds: Math.round((Date.now() - started) / 1000) });
+
+  onStage({ stage: 'install' });
+  const install = await run(config.install, { cwd, timeoutMs: 20 * 60_000 });
+  if (install.code !== 0) {
+    if (install.timedOut || NETWORK.test(install.output)) {
+      return finish({ outcome: 'error', stage: 'install', summary: `npm could not reach the registry or timed out: ${npmReason(install.output)}`, detail: install.output });
+    }
+    return finish({ outcome: 'fail', stage: 'install', summary: `install failed: ${npmReason(install.output)}`, detail: install.output });
+  }
+
+  if (config.build) {
+    onStage({ stage: 'build' });
+    const build = await run(config.build, { cwd, timeoutMs: 20 * 60_000 });
+    if (build.code !== 0) {
+      return finish({ outcome: 'fail', stage: 'build', summary: `build failed: ${buildReason(build.output)}`, detail: build.output });
+    }
+  }
+
+  onStage({ stage: 'boot' });
+  let app;
+  try {
+    app = await serve(config.serve, { cwd, url: config.url, env: { PORT: String(config.port) }, readyTimeoutMs: config.readyTimeoutMs });
+  } catch (error) {
+    if (error instanceof AddressInUse) return finish({ outcome: 'error', stage: 'boot', summary: error.message });
+    throw error;
+  }
+  if (!app.ok) {
+    const why = app.reason === 'exited' ? 'the app stopped while starting' : `the app did not answer at ${config.url} in time`;
+    return finish({ outcome: 'fail', stage: 'boot', summary: `${why}: ${buildReason(app.output)}`, detail: app.output });
+  }
+
+  try {
+    onStage({ stage: 'kane' });
+    const before = await credits();
+    const suite = await kane({ cwd, flows: config.flows, parallel: config.parallel });
+    const after = await credits();
+    const used = before !== null && after !== null ? Math.max(0, Number((before - after).toFixed(2))) : undefined;
+    return finish({
+      outcome: suite.outcome,
+      ...(suite.outcome === 'pass' ? {} : { stage: 'kane' }),
+      failing: suite.failing,
+      summary: suite.summary,
+      flows: suite.flows,
+      packs: suite.packs,
+      ...(used !== undefined ? { credits: used } : {}),
+    });
+  } finally {
+    await app.stop();
+  }
+}
