@@ -283,6 +283,9 @@ test('recordings only move forward on a pass: a failing check cannot leave them 
       'rewritten during a check that ended in pass\n',
       'rewritten during a check that ended in pass\n',
     ], 'after a failing check the next one starts from the last passing recording');
+    const runs = join(dir, '.upkeep/runs');
+    const ledger = await readLedger(join(runs, (await readdir(runs))[0]));
+    assert.deepEqual(ledger.filter((entry) => entry.type === 'check').map((entry) => entry.recordingsRestored ?? false), [false, false, true, true], 'the ledger says when recordings were put back');
   } finally {
     await cleanup();
   }

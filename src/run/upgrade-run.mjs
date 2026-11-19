@@ -1,7 +1,8 @@
 // `upkeep run`: plan the upgrades, open a worktree, prove the app works today,
 // then land upgrades through the loop and leave a branch and a report.
 
-import { cp, mkdir, readFile, writeFile, appendFile, access, copyFile, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, appendFile, access, copyFile, rm, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 import { makePlan } from '../plan/make-plan.mjs';
 import { resolveConfig } from '../config/resolve-config.mjs';
@@ -67,14 +68,39 @@ export async function keepRecordings(projectDir, flows, backupDir) {
     await cp(join(projectDir, folder), join(backupDir, folder), { recursive: true });
     kept.push(folder);
   }
+  const before = await fingerprintFolders(projectDir, recordingsOf(flows));
   return {
+    /** @returns {Promise<boolean>} whether the check had changed the recordings */
     restore: async () => {
+      const changed = (await fingerprintFolders(projectDir, recordingsOf(flows))) !== before;
+      if (!changed) return false;
       for (const folder of recordingsOf(flows)) {
         await rm(join(projectDir, folder), { recursive: true, force: true });
         if (kept.includes(folder)) await cp(join(backupDir, folder), join(projectDir, folder), { recursive: true });
       }
+      return true;
     },
   };
+}
+
+/** One hash over every file under the given folders (path and content). */
+async function fingerprintFolders(root, folders) {
+  const hash = createHash('sha256');
+  const walk = async (relative) => {
+    let entries;
+    try {
+      entries = await readdir(join(root, relative), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const path = join(relative, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else hash.update(path).update(await readFile(join(root, path)));
+    }
+  };
+  for (const folder of folders) await walk(folder);
+  return hash.digest('hex');
 }
 
 function commitMessage(units, verdict, repair) {
@@ -176,7 +202,8 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const stagesSeen = [];
     const recordings = await keepRecordings(work.projectDir, config.flows, join(runDir, 'recordings-before-check'));
     const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
-    if (verdict.outcome !== 'pass' || verdict.partial) await recordings.restore();
+    // True when the failing check had rewritten the recordings and they were put back.
+    const recordingsRestored = verdict.outcome !== 'pass' || verdict.partial ? await recordings.restore() : false;
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
     // Kane's policy engine on the pack: flows that verify nothing, and steps Kane healed.
@@ -185,7 +212,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       policyPath ??= await writePolicy(runDir);
       policy = await world.judgePack(packs.at(-1), policyPath).catch(() => null);
     }
-    await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), ...(policy ? { policy } : {}), at: new Date().toISOString() });
+    await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), ...(policy ? { policy } : {}), ...(recordingsRestored ? { recordingsRestored } : {}), at: new Date().toISOString() });
 
     const mark = verdict.partial ? '·' : verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
     const what = units.length === 0 ? 'the app as it is' : units.length <= 3 ? units.map((unit) => unit.id).join(', ') : plural(units.length, 'unit');
