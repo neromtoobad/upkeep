@@ -109,6 +109,13 @@ test('a build error fails at build and costs no Kane credits', async () => {
   assert.equal(verdict.credits, undefined);
 });
 
+test('paths into the worktree are shown relative to the project', async () => {
+  const output = 'error during build:\n[vite]: Rollup failed to resolve import "#minpath" from "/cache/upkeep/shop-1a2b/work/node_modules/vfile/lib/index.js".';
+  const verdict = await stagedCheck({ cwd: '/cache/upkeep/shop-1a2b/work', config: CONFIG, stages: stages({ build: { code: 1, output } }) });
+  assert.equal(verdict.summary, 'build failed: [vite]: Rollup failed to resolve import "#minpath" from "node_modules/vfile/lib/index.js".');
+  assert.ok(!verdict.detail.includes('/cache/upkeep'));
+});
+
 test('no build command means the build stage is skipped', async () => {
   const s = stages();
   await stagedCheck({ cwd: '/app', config: { ...CONFIG, build: null }, stages: s });

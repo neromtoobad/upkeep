@@ -60,7 +60,9 @@ export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', sta
   const serve = stages.serveApp ?? serveApp;
   const kane = stages.runKaneSuite ?? runKaneSuite;
   const credits = stages.readCredits ?? readCredits;
-  const finish = (verdict) => ({ ...verdict, seconds: Math.round((Date.now() - started) / 1000) });
+  // Tools print absolute paths into the worktree; a reader wants paths in their project.
+  const local = (text) => (typeof text === 'string' ? text.replaceAll(`${cwd}/`, '').replaceAll(cwd, '.') : text);
+  const finish = (verdict) => ({ ...verdict, summary: local(verdict.summary), ...(verdict.detail ? { detail: local(verdict.detail) } : {}), seconds: Math.round((Date.now() - started) / 1000) });
   const stoppedAfter = (stage) => finish({ outcome: 'pass', partial: true, summary: `got past ${stage}; not checked further` });
 
   onStage({ stage: 'install' });
