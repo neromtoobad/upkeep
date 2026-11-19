@@ -1,0 +1,194 @@
+{
+  "project": "margin-paper-goods",
+  "agent": "Claude Code",
+  "branch": "upkeep/2026-11-19-2222",
+  "base": "dfe7c918ab6ab13c403ccd20fb216efc7e710f09",
+  "flows": [
+    "flows/browse_test.md",
+    "flows/cart_test.md",
+    "flows/checkout_test.md"
+  ],
+  "url": "http://localhost:4173",
+  "plan": [
+    {
+      "name": "@vitejs/plugin-react",
+      "from": "3.0.0",
+      "to": "6.3.0",
+      "section": "devDependencies",
+      "spec": "^3.0.0",
+      "nextSpec": "^6.3.0",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#readme"
+    },
+    {
+      "name": "axios",
+      "from": "1.2.0",
+      "to": "1.21.1",
+      "section": "dependencies",
+      "spec": "^1.2.0",
+      "nextSpec": "^1.21.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://axios-http.com"
+    },
+    {
+      "name": "classnames",
+      "from": "2.2.6",
+      "to": "2.5.1",
+      "section": "dependencies",
+      "spec": "^2.2.6",
+      "nextSpec": "^2.5.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://github.com/JedWatson/classnames#readme"
+    },
+    {
+      "name": "date-fns",
+      "from": "1.30.1",
+      "to": "4.4.0",
+      "section": "dependencies",
+      "spec": "^1.30.1",
+      "nextSpec": "^4.4.0",
+      "kind": "major",
+      "breaking": true
+    },
+    {
+      "name": "js-cookie",
+      "from": "2.2.1",
+      "to": "3.0.8",
+      "section": "dependencies",
+      "spec": "^2.2.1",
+      "nextSpec": "^3.0.8",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/js-cookie/js-cookie#readme"
+    },
+    {
+      "name": "nanoid",
+      "from": "2.1.11",
+      "to": "6.0.2",
+      "section": "dependencies",
+      "spec": "^2.1.11",
+      "nextSpec": "^6.0.2",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/ai/nanoid#readme"
+    },
+    {
+      "name": "prop-types",
+      "from": "15.7.2",
+      "to": "15.8.1",
+      "section": "dependencies",
+      "spec": "^15.7.2",
+      "nextSpec": "^15.8.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://facebook.github.io/react/"
+    },
+    {
+      "name": "react",
+      "from": "17.0.2",
+      "to": "19.3.1",
+      "section": "dependencies",
+      "spec": "^17.0.2",
+      "nextSpec": "^19.3.1",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://react.dev/"
+    },
+    {
+      "name": "react-dom",
+      "from": "17.0.2",
+      "to": "19.3.1",
+      "section": "dependencies",
+      "spec": "^17.0.2",
+      "nextSpec": "^19.3.1",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://react.dev/"
+    },
+    {
+      "name": "react-hook-form",
+      "from": "6.15.8",
+      "to": "7.92.0",
+      "section": "dependencies",
+      "spec": "^6.15.8",
+      "nextSpec": "^7.92.0",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://react-hook-form.com"
+    },
+    {
+      "name": "react-markdown",
+      "from": "5.0.3",
+      "to": "10.1.0",
+      "section": "dependencies",
+      "spec": "^5.0.3",
+      "nextSpec": "^10.1.0",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/remarkjs/react-markdown#readme"
+    },
+    {
+      "name": "vite",
+      "from": "4.0.0",
+      "to": "8.3.8",
+      "section": "devDependencies",
+      "spec": "^4.0.0",
+      "nextSpec": "^8.3.8",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://vite.dev"
+    }
+  ],
+  "skipped": [],
+  "checks": 29,
+  "credits": 407.75,
+  "seconds": 1958,
+  "landed": [
+    {
+      "units": [
+        "axios",
+        "classnames",
+        "prop-types"
+      ],
+      "fixed": false
+    },
+    {
+      "units": [
+        "nanoid"
+      ],
+      "fixed": true,
+      "rounds": 1
+    },
+    {
+      "units": [
+        "date-fns"
+      ],
+      "fixed": true,
+      "rounds": 1
+    },
+    {
+      "units": [
+        "js-cookie"
+      ],
+      "fixed": true,
+      "rounds": 1
+    },
+    {
+      "units": [
+        "@vitejs/plugin-react+vite"
+      ],
+      "fixed": false
+    },
+    {
+      "units": [
+        "react+react-dom+react-hook-form+react-markdown"
+      ],
+      "fixed": true,
+      "rounds": 1
+    }
+  ],
+  "blocked": []
+}
