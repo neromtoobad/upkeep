@@ -140,7 +140,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
 | Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:52` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
-| No dependencies | `package.json:29` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
+| No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in
