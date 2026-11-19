@@ -63,6 +63,12 @@ export function renderReport(run, ledger, options = {}) {
   out.push(`${facts.join(' · ')}. Every check is install, build, boot, then Kane CLI walking ${plural(run.flows.length, 'flow')} in a real browser at ${run.url}.`);
   out.push('');
 
+  const stopped = ledger.find((entry) => entry.type === 'stopped');
+  if (stopped) {
+    out.push(`**Stopped early:** ${cell(stopped.reason)}`);
+    out.push('');
+  }
+
   if (plain.length > 0) {
     out.push('## Upgraded as they are');
     out.push('');

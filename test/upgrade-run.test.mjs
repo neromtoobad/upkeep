@@ -230,6 +230,11 @@ test('flows that verify nothing stop the run: they could not catch a broken upgr
       assert.match(error.message, /1 flow of 1 verifies nothing \(Kane CLI: tests without checks\)/);
       return true;
     });
+    const runs = join(dir, '.upkeep/runs');
+    const runDir = join(runs, (await readdir(runs))[0]);
+    assert.match((await readLedger(runDir)).at(-1).reason, /verifies nothing/);
+    assert.match(await readFile(join(runDir, 'report.md'), 'utf8'), /\*\*Stopped early:\*\* 1 flow of 1 verifies nothing/);
+    assert.match(await readFile(join(runDir, 'report.html'), 'utf8'), /stopped early<\/span> 1 flow of 1 verifies nothing/);
   } finally {
     await cleanup();
   }

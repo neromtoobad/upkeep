@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upkeep report: margin-paper-goods</title>
+<style>
+:root { --page:#faf9f6; --ink:#16150f; --soft:#6b6860; --line:rgba(22,21,15,.12); --pass:#1d6b43; --fail:#a5371f; --held:#8a6410; --step:#9a978d; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--page); color:var(--ink); font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+main { max-width:920px; margin:0 auto; padding:56px 24px 96px; }
+.label { font:11px/1.4 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--soft); }
+h1 { font-size:34px; line-height:1.1; letter-spacing:-.02em; font-weight:600; margin:10px 0 18px; }
+h2 { font-size:20px; letter-spacing:-.01em; font-weight:600; margin:64px 0 6px; }
+h3 { font-size:16px; font-weight:600; margin:0 0 2px; }
+p { margin:0 0 12px; }
+.lede { font-size:19px; line-height:1.45; max-width:34em; }
+.lede b { font-weight:600; }
+.soft { color:var(--soft); }
+code, .mono { font:13px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+.facts { display:flex; flex-wrap:wrap; gap:10px 36px; margin:28px 0 0; padding:18px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.facts div b { display:block; font-weight:500; font-size:15px; }
+.strip { display:flex; flex-wrap:wrap; gap:3px; margin:18px 0 6px; }
+.strip i { width:14px; height:26px; border-radius:2px; background:var(--step); opacity:.45; }
+.strip i.pass { background:var(--pass); opacity:1; } .strip i.fail { background:var(--fail); opacity:1; } .strip i.error { background:var(--held); opacity:1; }
+.case { border-top:1px solid var(--line); padding:26px 0 8px; }
+.case .verdict { float:right; }
+.stamp { display:inline-block; font:11px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; padding:5px 7px 4px; border:1px solid currentColor; border-radius:3px; }
+.stamp.pass { color:var(--pass); } .stamp.fail { color:var(--fail); } .stamp.held { color:var(--held); } .stamp.step { color:var(--step); }
+dl { display:grid; grid-template-columns:150px 1fr; gap:8px 20px; margin:14px 0 18px; }
+dt { color:var(--soft); } dd { margin:0; }
+blockquote { margin:0; padding-left:14px; border-left:2px solid var(--line); }
+.shots { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:6px 0 22px; }
+.shots.one { grid-template-columns:1fr; max-width:55%; }
+figure { margin:0; }
+/* Kane's screenshots are 1920 wide with the app in the middle: show the middle half at twice the size. */
+.frame { overflow:hidden; aspect-ratio:16/10; border:1px solid var(--line); border-radius:3px; background:#fff; }
+.frame img { display:block; width:200%; max-width:none; margin-left:-50%; }
+figcaption { margin-top:8px; font-size:13.5px; color:var(--soft); }
+figcaption b { color:var(--ink); font-weight:500; }
+table { width:100%; border-collapse:collapse; margin:12px 0 0; font-size:14px; }
+th { text-align:left; font:11px/1.4 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--soft); font-weight:400; padding:8px 12px 8px 0; border-bottom:1px solid var(--line); }
+td { padding:9px 12px 9px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+td.n, th.n { text-align:right; padding-right:0; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.num, th.num { width:34px; color:var(--soft); font-variant-numeric:tabular-nums; }
+td.n + td.n, th.n + th.n { padding-left:18px; }
+tr.search td { color:var(--soft); }
+footer { margin-top:72px; padding-top:18px; border-top:1px solid var(--line); font-size:13.5px; color:var(--soft); }
+@media (max-width:640px) { main { padding:32px 16px 64px; } h1 { font-size:27px; } .lede { font-size:17px; } .shots, .shots.one { grid-template-columns:1fr; max-width:none; } dl { grid-template-columns:1fr; gap:2px 0; } dd { margin-bottom:10px; } .case .verdict { float:none; display:block; margin-bottom:10px; } table { font-size:13px; } }
+</style>
+</head>
+<body>
+<main>
+<p class="label">Upkeep report</p>
+<h1>margin-paper-goods</h1>
+<p class="lede"><b>1 package</b> was behind. <b>0</b> are upgraded, each one after Kane CLI walked the app in a real browser and it passed.</p>
+<p><span class="stamp held">stopped early</span> 1 flow of 1 verifies nothing (Kane CLI: tests without checks). A flow with no &quot;verify&quot; step passes whatever the app does, so it cannot catch a broken upgrade. End each flow with what should be on the page.</p>
+<div class="facts">
+<div><span class="label">Branch</span><b class="mono">upkeep/2026-11-19-2157</b></div>
+<div><span class="label">Checks</span><b>1</b></div>
+<div><span class="label">Time</span><b>75 s</b></div>
+<div><span class="label">Kane credits</span><b>3.69</b></div>
+<div><span class="label">Flows walked</span><b>1 at http://localhost:4173</b></div>
+</div>
+<div class="strip" aria-hidden="true"><i class="pass" title="check 1"></i></div>
+<p class="soft" style="font-size:13.5px">One mark per check, in order. Green passed, red failed, grey is a step of the search that stopped early on purpose.</p>
+<h2>Every check</h2>
+<p class="soft">Each one installs, builds and boots the app, then Kane CLI walks the flows. It stops at the first stage that fails.</p>
+<table><thead><tr><th class="num">#</th><th>Applied</th><th>Result</th><th class="n">Time</th><th class="n">Credits</th></tr></thead><tbody>
+<tr><td class="num">1</td><td class="mono">nothing: the app as it is</td><td><span class="stamp pass">pass</span> 1 of 1 flows passed</td><td class="n">60 s</td><td class="n">3.69</td></tr>
+</tbody></table>
+<footer>Written by Upkeep from the run's ledger. Screenshots are Kane CLI's own, taken from its evidence packs. A quick check replays recorded steps and stops at the first mismatch; nothing is blamed or held back without a full check, in which Kane first tries to heal the step.</footer>
+</main>
+</body>
+</html>

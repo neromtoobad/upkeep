@@ -99,6 +99,8 @@ export function renderHtml(run, ledger, options = {}) {
   out.push(`<p class="label">Upkeep report</p>`);
   out.push(`<h1>${esc(run.project)}</h1>`);
   out.push(`<p class="lede">${sentence.join(' ')}</p>`);
+  const stopped = ledger.find((entry) => entry.type === 'stopped');
+  if (stopped) out.push(`<p><span class="stamp held">stopped early</span> ${prose(stopped.reason)}</p>`);
   out.push('<div class="facts">');
   out.push(`<div><span class="label">Branch</span><b class="mono">${esc(run.branch)}</b></div>`);
   out.push(`<div><span class="label">Checks</span><b>${run.checks}</b></div>`);

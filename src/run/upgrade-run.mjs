@@ -293,7 +293,11 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       say('');
     }
   } catch (error) {
-    if (!(error instanceof BudgetReached)) throw error;
+    if (!(error instanceof BudgetReached)) {
+      // The report of a run that had to stop should say why.
+      await record({ type: 'stopped', reason: error instanceof CheckUnavailable ? `the check could not run: ${error.message}` : error.message }).catch(() => {});
+      throw error;
+    }
     // Whatever was being tried is not verified: put the worktree back to the last commit.
     await discardChanges(work.projectDir);
     result.stoppedEarly = error.message;

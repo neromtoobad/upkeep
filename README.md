@@ -89,7 +89,7 @@ With a Kane account (`kane-cli login --oauth`) and Claude Code installed, see [R
 
 | Bar (quoted from the event page) | Where |
 |---|---|
-| "It works end to end." | Four real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. The last one upgrades all 12 packages. |
+| "It works end to end." | Five real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. The last one upgrades all 12 packages. |
 | "Kane CLI caught or proved something." | Caught: three upgrades that build fine and leave a blank page (`date-fns` 4, `js-cookie` 3, React 19 with its form and markdown libraries). Proved: every one of the five commits, 3 of 3 flows each. |
 | "Your agent and Kane CLI talked to each other." | Kane's failure record is the agent's task (four of them in [`agent/`](evidence/2026-11-19-2110-all-twelve/agent/)); the agent's edit is judged by Kane's next walk (`src/agent/fix-loop.mjs`). No person in between. |
 
@@ -175,7 +175,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Tests of `upkeep run` as a whole | A real git repository, worktree, commits, ledger and report. The plan, the check and the Kane account are stand-ins | `test/upgrade-run.test.mjs` |
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
-| The "flow verifies nothing" stop | Tested with a stand-in for Kane's verdict. Real packs so far all had checks, so it has **not fired on a real run** | `test/upgrade-run.test.mjs` |
+| The "flow verifies nothing" stop | Fired on a real run: a flow with no verify step was given to Kane, Kane passed it, Kane's policy metric counted it, and Upkeep stopped before any upgrade | [`evidence/2026-11-19-2157-flow-without-checks/`](evidence/2026-11-19-2157-flow-without-checks/ledger.ndjson), `test/upgrade-run.test.mjs` |
 | Handoff mode (`--agent handoff`, `upkeep wait`, `upkeep continue`) | Used on a real run: the fixer was the Claude Code session that built Upkeep, taking the task from `upkeep wait` and answering with `upkeep continue` | [`evidence/2026-11-19-2147-handoff-and-guard/`](evidence/2026-11-19-2147-handoff-and-guard/report.md), `test/handoff.test.mjs` |
 | The guard on a real run | In that same run the agent **deliberately** weakened `flows/checkout_test.md` along with the real fix, to see the guard work. Upkeep undid the flow edit, kept the fix, and Kane passed. It was a probe by us, not something an agent did unprompted | the "Undone by Upkeep" line in that run's report |
 | The MCP server (`upkeep mcp`) | Tested by speaking JSON-RPC to the real server process. **Not yet connected to a real MCP client** | `test/mcp-server.test.mjs` |
@@ -183,7 +183,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 
 ## Not built yet
 
-- A run on someone else's open-source app. All four published runs are on the demo shop.
+- A run on someone else's open-source app. All five published runs are on the demo shop.
 - Package managers other than npm. pnpm, Yarn and Bun projects are not supported.
 - Monorepo workspaces as a whole. A single package in a subfolder works; upgrading across
   workspaces does not.
@@ -210,11 +210,13 @@ Every claim made here, the line of code behind it, and how it is checked.
 
 ```bash
 npm install -g @testmuai/kane-cli && kane-cli login --oauth
-git clone https://github.com/neromtoobad/upkeep
 cd /path/to/your/app
-node /path/to/upkeep/bin/upkeep.mjs plan
-node /path/to/upkeep/bin/upkeep.mjs run --agent claude
+npx github:neromtoobad/upkeep plan
+npx github:neromtoobad/upkeep run --agent claude
 ```
+
+Or clone it and run `node /path/to/upkeep/bin/upkeep.mjs` in place of `npx github:neromtoobad/upkeep`.
+It is not on the npm registry yet.
 
 There is nothing to configure: no environment file, no keys of Upkeep's own. It uses the Kane
 CLI sign-in you already have.

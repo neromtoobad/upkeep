@@ -1,0 +1,28 @@
+{
+  "project": "margin-paper-goods",
+  "branch": "upkeep/2026-11-19-2157",
+  "base": "2057ca1230db991b6eb645ad52a63bdd19bf2799",
+  "flows": [
+    "flows/visit_test.md"
+  ],
+  "url": "http://localhost:4173",
+  "plan": [
+    {
+      "name": "axios",
+      "from": "1.2.0",
+      "to": "1.21.1",
+      "section": "dependencies",
+      "spec": "^1.2.0",
+      "nextSpec": "^1.21.1",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://axios-http.com"
+    }
+  ],
+  "skipped": [],
+  "checks": 1,
+  "credits": 3.69,
+  "seconds": 75,
+  "landed": [],
+  "blocked": []
+}

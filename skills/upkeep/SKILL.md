@@ -27,13 +27,13 @@ the app when Upkeep hands you a failure, and to report what happened.
 ## Run it
 
 ```bash
-npx upkeep-cli plan
+npx github:neromtoobad/upkeep plan
 ```
 
 Show the user the plan: what is behind, what may break, what moves together and why.
 
 ```bash
-npx upkeep-cli run --agent claude
+npx github:neromtoobad/upkeep run --agent claude
 ```
 
 - `--agent claude` starts a separate headless Claude Code for each fix. `--agent codex` does the
@@ -56,8 +56,8 @@ pass its flows before any upgrade.
 ## Handoff: you are the fixer
 
 ```bash
-npx upkeep-cli run --agent handoff     # start it in the background; it pauses when it needs you
-npx upkeep-cli wait                    # blocks until there is a task for you, or the run is over
+npx github:neromtoobad/upkeep run --agent handoff     # start it in the background; it pauses when it needs you
+npx github:neromtoobad/upkeep wait                    # blocks until there is a task for you, or the run is over
 ```
 
 `upkeep wait` exits `10` and prints a task when Kane has confirmed that an upgrade broke the app.
@@ -65,8 +65,8 @@ The task ends with the folder to edit: a worktree, **not** the user's checkout. 
 there, following the rules in the task, then:
 
 ```bash
-npx upkeep-cli continue --message "what you changed, in a sentence"
-npx upkeep-cli wait
+npx github:neromtoobad/upkeep continue --message "what you changed, in a sentence"
+npx github:neromtoobad/upkeep wait
 ```
 
 Upkeep checks your edit with its guard and has Kane walk the app again. `wait` then prints either
