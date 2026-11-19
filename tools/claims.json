@@ -36,6 +36,12 @@
     "check": "`test/read-suite-stream.test.mjs`, against a real capture of a runner crash"
   },
   {
+    "claim": "Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`)",
+    "file": "src/kane/judge-pack.mjs",
+    "find": "export async function judgePack",
+    "check": "`test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs`"
+  },
+  {
     "claim": "The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check",
     "file": "src/loop/land-upgrades.mjs",
     "find": "const culpritVerdict = await runCheck(culprit, 'confirm')",

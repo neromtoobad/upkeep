@@ -54,13 +54,25 @@ export async function readScreenshots(runDir, ledger) {
     for (const packName of check.packs ?? []) {
       const packPath = join(runDir, 'evidence', basename(packName));
       if (!(await exists(packPath))) continue;
-      const zip = await readFile(packPath);
-      const entries = listZip(zip);
+      // A pack that is truncated or not a pack costs its screenshots, never the report.
+      let zip;
+      let entries;
+      try {
+        zip = await readFile(packPath);
+        entries = listZip(zip);
+      } catch {
+        continue;
+      }
       for (const flow of check.flows ?? []) {
         const stem = flow.flow.replace(/_test\.md$/, '');
         const id = `check-${check.number}-${stem}`;
         if (shots.has(id)) continue;
-        const shot = flowScreenshot(zip, entries, stem);
+        let shot = null;
+        try {
+          shot = flowScreenshot(zip, entries, stem);
+        } catch {
+          shot = null;
+        }
         if (shot) shots.set(id, { bytes: shot.bytes, status: flow.status });
       }
     }

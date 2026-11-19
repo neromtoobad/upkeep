@@ -39,6 +39,19 @@ test('flowScreenshot takes the last step of the final attempt when the flow pass
   assert.equal(flowScreenshot(zip, listZip(zip), 'cart'), null);
 });
 
+test('a truncated pack costs its screenshots, not the report', async () => {
+  const run = await mkdtemp(join(tmpdir(), 'upkeep-export-'));
+  try {
+    await mkdir(join(run, 'evidence'), { recursive: true });
+    await writeFile(join(run, 'evidence/broken.evidence'), 'not a zip');
+    const ledger = [{ type: 'check', number: 1, units: [], outcome: 'pass', packs: ['broken.evidence'], flows: [{ flow: 'checkout_test.md', status: 'passed' }] }];
+    const { readScreenshots } = await import('../src/report/export-run.mjs');
+    assert.equal((await readScreenshots(run, ledger)).size, 0);
+  } finally {
+    await rm(run, { recursive: true, force: true });
+  }
+});
+
 test('exportRun copies the report, ledger, agent exchange and screenshots, never the packs', async () => {
   const run = await mkdtemp(join(tmpdir(), 'upkeep-export-'));
   const out = await mkdtemp(join(tmpdir(), 'upkeep-export-out-'));

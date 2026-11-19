@@ -125,7 +125,8 @@ export function renderReport(run, ledger, options = {}) {
   out.push('|---|---|---|---|---|');
   for (const check of checks) {
     const applied = check.units.length === 0 ? 'nothing (the app as it is)' : check.units.length > 4 ? `${plural(check.units.length, 'unit')}: ${check.units.slice(0, 3).join(', ')}, …` : check.units.join(', ');
-    const result = check.upTo ? `${cell(check.summary)} (search step, stopped after ${check.upTo})` : check.outcome === 'pass' ? `pass: ${cell(check.summary)}` : check.outcome === 'fail' ? `**fail at ${check.stage}**: ${cell(check.summary)}` : `could not check: ${cell(check.summary)}`;
+    const healed = check.outcome === 'pass' && check.policy?.healed > 0 ? ` Kane healed ${plural(check.policy.healed, 'flow')}: the page changed.` : '';
+    const result = check.upTo ? `${cell(check.summary)} (search step, stopped after ${check.upTo})` : check.outcome === 'pass' ? `pass: ${cell(check.summary)}.${healed}` : check.outcome === 'fail' ? `**fail at ${check.stage}**: ${cell(check.summary)}` : `could not check: ${cell(check.summary)}`;
     out.push(`| ${check.number} | ${cell(applied)} | ${result} | ${check.seconds ?? ''}s | ${check.credits ?? ''} |`);
   }
   out.push('');

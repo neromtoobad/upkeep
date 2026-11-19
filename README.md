@@ -111,6 +111,11 @@ Kane is the only judge. Upkeep never looks at the page itself.
 - **Evidence packs** are opened for the failing step, Kane's triage (root cause, suggested fix),
   the browser console and the screenshot (`src/kane/read-evidence.mjs`). These go to the agent
   and into the report.
+- **Policies and verdicts.** After each check the pack is judged with
+  `kane-cli evidence verdict --policy` on two of Kane's own metrics. `metrics.tests_without_checks`:
+  a flow that verifies nothing passes whatever the app does, so Upkeep refuses to start from one.
+  `metrics.heal.healed_tests`: Kane healed a step, so the page changed and the flow still passed;
+  the report says so (`src/kane/judge-pack.mjs`).
 - **`kane-cli balance`** before and after each check gives the credits it used, for the report
   and the `--budget` cap.
 
@@ -131,6 +136,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:57` | `test/staged-check.test.mjs` |
 | Runs the flows with `kane-cli testrun run --agent --headless` | `src/kane/run-suite.mjs:45` | `test/run-suite.test.mjs`; every check in `evidence/*/ledger.ndjson` |
 | A flow Kane could not run (runner crash, no browser) is never read as a broken app, even though Kane exits 1 for both | `src/kane/read-suite-stream.mjs:122` | `test/read-suite-stream.test.mjs`, against a real capture of a runner crash |
+| Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:63` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
 | The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check | `src/loop/land-upgrades.mjs:108` | `test/land-upgrades.test.mjs`; `node tools/check-claims.mjs` checks it in the published ledgers |
 | Nothing is committed unless a check passed on exactly that set of upgrades | `src/loop/land-upgrades.mjs:86` | `node tools/check-claims.mjs` checks every landed set in `evidence/*/ledger.ndjson` |
 | Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md` |
@@ -139,9 +145,9 @@ Every claim made here, the line of code behind it, and how it is checked.
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
-| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:84` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
+| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:96` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
-| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:138` | `test/upgrade-run.test.mjs` |
+| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:140` | `test/upgrade-run.test.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in
@@ -155,6 +161,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Tests of `upkeep run` as a whole | A real git repository, worktree, commits, ledger and report. The plan, the check and the Kane account are stand-ins | `test/upgrade-run.test.mjs` |
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
+| The "flow verifies nothing" stop | Tested with a stand-in for Kane's verdict. Real packs so far all had checks, so it has **not fired on a real run** | `test/upgrade-run.test.mjs` |
 | The Codex CLI preset (`--agent codex`) | Written from the Codex documentation. **Not run by us**: Codex is not installed here | `src/agent/ask-agent.mjs` |
 
 ## Not built yet

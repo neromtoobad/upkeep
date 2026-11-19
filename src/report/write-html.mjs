@@ -173,7 +173,7 @@ export function renderHtml(run, ledger, options = {}) {
     const applied = check.units.length === 0 ? 'nothing: the app as it is' : check.units.join(', ');
     let result;
     if (check.upTo) result = `<span class="stamp step">search step</span> ${esc(check.summary)}`;
-    else if (check.outcome === 'pass') result = `<span class="stamp pass">pass</span> ${esc(check.summary)}`;
+    else if (check.outcome === 'pass') result = `<span class="stamp pass">pass</span> ${esc(check.summary)}${check.policy?.healed > 0 ? ` <span class="soft">· Kane healed ${plural(check.policy.healed, 'flow')}: the page changed</span>` : ''}`;
     else if (check.outcome === 'fail') result = `<span class="stamp fail">fail at ${esc(check.stage)}</span> ${esc(String(check.summary).replace(/\/(?:Users|home)\/\S*?\/work\//g, ''))}`;
     else result = `<span class="stamp held">could not check</span> ${esc(check.summary)}`;
     out.push(`<tr${check.upTo ? ' class="search"' : ''}><td class="num">${check.number}</td><td class="mono">${esc(applied)}${check.speed === 'quick' && !check.upTo ? ' <span class="soft">(quick)</span>' : ''}</td><td>${result}</td><td class="n">${check.seconds ?? ''} s</td><td class="n">${check.credits ?? '–'}</td></tr>`);

@@ -216,6 +216,46 @@ test('the credit budget stops new checks; what landed stays, the rest is reporte
   }
 });
 
+test('flows that verify nothing stop the run: they could not catch a broken upgrade', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world();
+  const parts = {
+    ...w.parts,
+    stagedCheck: async (input) => ({ ...(await w.parts.stagedCheck(input)), packs: [join(dir, 'package.json')] }),
+    judgePack: async () => ({ withoutChecks: 1, healed: 0 }),
+  };
+  try {
+    await assert.rejects(upgradeRun({ projectDir: dir, say: quiet, parts }), (error) => {
+      assert.ok(error instanceof RunStopped);
+      assert.match(error.message, /1 flow of 1 verifies nothing \(Kane CLI: tests without checks\)/);
+      return true;
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+test('a pass where Kane healed a step is recorded and said', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world({ candidates: [AXIOS] });
+  let judged = 0;
+  const parts = {
+    ...w.parts,
+    stagedCheck: async (input) => ({ ...(await w.parts.stagedCheck(input)), packs: [join(dir, 'package.json')] }),
+    judgePack: async () => ({ withoutChecks: 0, healed: (judged += 1) === 2 ? 1 : 0 }),
+  };
+  try {
+    const said = [];
+    const result = await upgradeRun({ projectDir: dir, say: (line) => said.push(line), parts });
+    assert.ok(said.some((line) => /Kane healed 1 flow: the page changed and the flow still passed/.test(line)));
+    const ledger = await readLedger(result.runDir);
+    assert.deepEqual(ledger.filter((entry) => entry.type === 'check').map((entry) => entry.policy), [{ withoutChecks: 0, healed: 0 }, { withoutChecks: 0, healed: 1 }]);
+    assert.match(await readFile(join(result.runDir, 'report.md'), 'utf8'), /Kane healed 1 flow: the page changed\./);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('nothing behind: says so and makes no branch', async () => {
   const { dir, cleanup } = await shop();
   try {

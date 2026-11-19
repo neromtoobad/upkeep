@@ -66,9 +66,14 @@ test('a held-back upgrade says what breaks and why it was not fixed', () => {
 
 test('every check is listed, failures marked, with time and credits', () => {
   const report = renderReport(RUN, LEDGER);
-  assert.match(report, /\| 1 \| nothing \(the app as it is\) \| pass: 3 of 3 flows passed \| 63s \| 6\.95 \|/);
+  assert.match(report, /\| 1 \| nothing \(the app as it is\) \| pass: 3 of 3 flows passed\. \| 63s \| 6\.95 \|/);
   assert.match(report, /\| 4 \| date-fns \| \*\*fail at kane\*\*: 1 of 3 flows failed.*\| 240s \| 14 \|/);
   assert.match(report, /- ui-kit: spec "workspace:\*" is not a plain version range/);
+});
+
+test('a pass where Kane healed a step says so', () => {
+  const ledger = LEDGER.map((entry) => (entry.number === 2 ? { ...entry, policy: { withoutChecks: 0, healed: 1 } } : entry));
+  assert.match(renderReport(RUN, ledger), /\| 2 \| axios, classnames \| pass: 3 of 3 flows passed\. Kane healed 1 flow: the page changed\. \|/);
 });
 
 test('sections with nothing in them are left out', () => {

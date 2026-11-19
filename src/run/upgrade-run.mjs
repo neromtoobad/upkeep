@@ -10,6 +10,7 @@ import { writeVersions } from '../apply/set-versions.mjs';
 import { stagedCheck } from '../check/staged-check.mjs';
 import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
 import { kaneStatus, readCredits } from '../kane/run-suite.mjs';
+import { judgePack, writePolicy } from '../kane/judge-pack.mjs';
 import { runCommand } from '../check/run-command.mjs';
 import { renderReport } from '../report/write-report.mjs';
 import { renderRunHtml } from '../report/export-run.mjs';
@@ -75,7 +76,7 @@ function commitMessage(units, verdict, repair) {
 export async function upgradeRun({ projectDir, options = {}, say = (line) => process.stdout.write(`${line}\n`), fix, parts = {} }) {
   const started = Date.now();
   // The outside world, replaceable so the orchestration can be tested without npm, a browser or Kane.
-  const world = { resolveConfig, makePlan, stagedCheck, kaneStatus, readCredits, ...parts };
+  const world = { resolveConfig, makePlan, stagedCheck, kaneStatus, readCredits, judgePack, ...parts };
   const { stagedCheck: runStagedCheck, kaneStatus: readKaneStatus, readCredits: creditsLeft } = world;
 
   const config = await world.resolveConfig(projectDir);
@@ -133,6 +134,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
 
   let checkNumber = 0;
   let spent = 0;
+  let policyPath = null;
   const check = async (units, { keepManifest = false, label, speed = 'full', upTo = 'kane' } = {}) => {
     if (options.budget !== undefined && spent >= options.budget) {
       throw new BudgetReached(`the budget of ${options.budget} Kane credits is used up (${Number(spent.toFixed(2))} spent)`);
@@ -148,14 +150,23 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
-    await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), at: new Date().toISOString() });
+    // Kane's policy engine on the pack: flows that verify nothing, and steps Kane healed.
+    let policy = null;
+    if (!verdict.partial && packs.length > 0) {
+      policyPath ??= await writePolicy(runDir);
+      policy = await world.judgePack(packs.at(-1), policyPath).catch(() => null);
+    }
+    await record({ type: 'check', number, label, speed, ...(verdict.partial ? { upTo } : {}), units: units.map((unit) => unit.id), outcome: verdict.outcome, stage: verdict.stage, failing: verdict.failing, summary: verdict.summary, seconds: verdict.seconds, credits: verdict.credits, flows: verdict.flows, packs: packs.map((p) => basename(p)), ...(policy ? { policy } : {}), at: new Date().toISOString() });
 
     const mark = verdict.partial ? '·' : verdict.outcome === 'pass' ? '✓' : verdict.outcome === 'fail' ? '✗' : '!';
     const what = units.length === 0 ? 'the app as it is' : units.length <= 3 ? units.map((unit) => unit.id).join(', ') : plural(units.length, 'unit');
     const cost = [`${verdict.seconds}s`, verdict.credits !== undefined ? `${verdict.credits} credits` : null].filter(Boolean).join(' · ');
     say(`  ${mark} check ${number}  ${what}${speed === 'quick' ? '  (quick)' : ''}`);
     say(`      ${stagesSeen.join(' → ')}  ${verdict.outcome === 'pass' ? verdict.summary : `failed at ${verdict.stage}: ${verdict.summary}`}  (${cost})`);
-    return { ...verdict, packs };
+    if (verdict.outcome === 'pass' && policy?.healed > 0) {
+      say(`      Kane healed ${plural(policy.healed, 'flow')}: the page changed and the flow still passed`);
+    }
+    return { ...verdict, packs, policy };
   };
 
   // Put exactly these units in place (versions and installed packages) without checking the app.
@@ -173,6 +184,12 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     if (baseline.outcome === 'error') throw new CheckUnavailable(baseline);
     if (baseline.outcome === 'fail') {
       throw new RunStopped(`the app does not pass its own flows before any upgrade (${baseline.summary}). Fix that first; Upkeep needs a working starting point.`);
+    }
+    if (baseline.policy?.withoutChecks > 0) {
+      throw new RunStopped(
+        `${plural(baseline.policy.withoutChecks, 'flow')} of ${config.flows.length} ${baseline.policy.withoutChecks === 1 ? 'verifies' : 'verify'} nothing (Kane CLI: tests without checks). ` +
+          'A flow with no "verify" step passes whatever the app does, so it cannot catch a broken upgrade. End each flow with what should be on the page.',
+      );
     }
     if (!seeded) say('      (first install in the worktree; later checks are faster)');
     // Recordings Kane wrote for the first time belong with the flows when the repo tracks them.
