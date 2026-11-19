@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { planFromOutdated, readOutdated } from './outdated.mjs';
 import { groupLockstep } from './group-lockstep.mjs';
+import { peerLinks, readCurrentPeers, readNextPeers } from './peer-links.mjs';
 
 /**
  * @param {string} cwd project folder holding package.json
@@ -19,13 +20,22 @@ export async function makePlan(cwd, options = {}) {
   }
   const outdated = await readOutdated(cwd);
   const { candidates, skipped } = planFromOutdated(outdated, pkg, options);
-  const units = groupLockstep(candidates);
+  // Which upgrades need each other? One registry question per package.
+  let links = { pairs: [], reasons: [] };
+  if (candidates.length > 1 && options.peers !== false) {
+    links = peerLinks(candidates, {
+      current: await readCurrentPeers(cwd, candidates.map((c) => c.name)),
+      next: await readNextPeers(candidates, { cwd }),
+    });
+  }
+  const units = groupLockstep(candidates, links.pairs);
   return {
     project: pkg.name ?? '(unnamed)',
     target: options.target ?? 'latest',
     candidates,
     units,
     skipped,
+    together: links.reasons,
   };
 }
 
@@ -60,6 +70,10 @@ export function renderPlan(plan) {
     const safe = plan.candidates.filter((c) => !c.breaking);
     if (risky.length > 0) lines.push('  May break the app (new major, or a 0.x minor)', ...risky.map(row), '');
     if (safe.length > 0) lines.push('  Should be compatible', ...safe.map(row), '');
+  }
+
+  if (plan.together?.length > 0) {
+    lines.push('  Why some move together', ...plan.together.map((reason) => `    ${reason}`), '');
   }
 
   if (plan.skipped.length > 0) {

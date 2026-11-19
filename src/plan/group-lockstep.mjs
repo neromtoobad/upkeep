@@ -39,9 +39,10 @@ export function typedPackage(name) {
 
 /**
  * @param {Candidate[]} candidates
+ * @param {[string, string][]} [links] extra pairs that must move together (see peer-links.mjs)
  * @returns {Unit[]} units sorted by id
  */
-export function groupLockstep(candidates) {
+export function groupLockstep(candidates, links = []) {
   const parent = new Map(candidates.map((c) => [c.name, c.name]));
   const find = (name) => {
     let root = name;
@@ -69,6 +70,11 @@ export function groupLockstep(candidates) {
   for (const candidate of candidates) {
     const described = typedPackage(candidate.name);
     if (described && parent.has(described)) union(described, candidate.name);
+  }
+
+  // Upgrades that need each other because of peer dependencies.
+  for (const [a, b] of links) {
+    if (parent.has(a) && parent.has(b)) union(a, b);
   }
 
   const members = new Map();
