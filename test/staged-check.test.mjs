@@ -97,6 +97,16 @@ test('the registry being unreachable is "could not check", not a failed upgrade'
   assert.equal(verdict.stage, 'install');
 });
 
+test('a registry that refuses us, or a full disk, is "could not check" too', async () => {
+  for (const output of ['npm error code E401\nnpm error Incorrect or missing password.', 'npm error code E503\nnpm error 503 Service Unavailable', 'npm error code ENOSPC\nnpm error nospc There appears to be insufficient space on your system']) {
+    const verdict = await stagedCheck({ cwd: '/app', config: CONFIG, stages: stages({ install: { code: 1, output } }) });
+    assert.equal(verdict.outcome, 'error', output.split('\n')[0]);
+  }
+  // A version that does not exist is about the upgrade: a real failure.
+  const missing = await stagedCheck({ cwd: '/app', config: CONFIG, stages: stages({ install: { code: 1, output: 'npm error code ETARGET\nnpm error notarget No matching version found for left-pad@9.9.9.' } }) });
+  assert.equal(missing.outcome, 'fail');
+});
+
 test('a build error fails at build and costs no Kane credits', async () => {
   const output = 'vite v4.0.0 building for production...\nerror during build:\nRollupError: "default" is not exported by "node_modules/nanoid/index.browser.js", imported by "src/orders.js".';
   const s = stages({ build: { code: 1, output } });

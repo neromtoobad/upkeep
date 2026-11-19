@@ -149,16 +149,20 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
       separated: !search.exhausted,
     });
 
-    const repair = await fix(culprit, culpritVerdict);
+    let repair = await fix(culprit, culpritVerdict);
+    // "Fixed" only counts with a passing, complete check to show for it.
+    if (repair.fixed && (repair.verdict?.outcome !== 'pass' || repair.verdict.partial)) {
+      repair = { ...repair, fixed: false, reason: 'the fixer reported a fix without a passing check' };
+    }
     if (repair.fixed) {
-      await land(culprit, repair.verdict ?? culpritVerdict, repair);
-      landed.push({ units: culprit, verdict: repair.verdict ?? culpritVerdict, fixed: true, rounds: repair.rounds });
+      await land(culprit, repair.verdict, repair);
+      landed.push({ units: culprit, verdict: repair.verdict, fixed: true, rounds: repair.rounds });
       onEvent({ type: 'landed', units: idsOf(culprit), fixed: true, rounds: repair.rounds });
     } else {
       if (discard) await discard(culprit);
       blocked.push({
         units: culprit,
-        verdict: repair.verdict ?? culpritVerdict,
+        verdict: repair.verdict?.outcome === 'fail' ? repair.verdict : culpritVerdict,
         rounds: repair.rounds ?? 0,
         reason: repair.reason ?? 'the app still fails with this upgrade',
         separated: !search.exhausted,

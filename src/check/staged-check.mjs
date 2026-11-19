@@ -12,8 +12,10 @@ import { runKaneSuite, readCredits } from '../kane/run-suite.mjs';
 
 /** @typedef {import('./verdict.mjs').Verdict} Verdict */
 
-// npm could not reach the registry: nothing to conclude about the packages.
-const NETWORK = /\b(ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|ERR_SOCKET_TIMEOUT|network request .* failed)\b/i;
+// npm failed for a reason that has nothing to do with which versions were
+// asked for: the registry was unreachable or refused us, or the disk or
+// permissions got in the way. Nothing can be concluded about the packages.
+const NETWORK = /\b(ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|ERR_SOCKET_TIMEOUT|E401|E403|E5\d\d|ENOSPC|EACCES|EPERM|EROFS|EMFILE)\b|network request .* failed/i;
 
 /** The lines of an npm failure that say what is wrong. */
 export function npmReason(output) {
@@ -69,7 +71,7 @@ export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', sta
   const install = await run(config.install, { cwd, timeoutMs: 20 * 60_000 });
   if (install.code !== 0) {
     if (install.timedOut || NETWORK.test(install.output)) {
-      return finish({ outcome: 'error', stage: 'install', summary: `npm could not reach the registry or timed out: ${npmReason(install.output)}`, detail: install.output });
+      return finish({ outcome: 'error', stage: 'install', summary: `npm could not install for a reason unrelated to the versions (registry, disk, permissions or a timeout): ${npmReason(install.output)}`, detail: install.output });
     }
     return finish({ outcome: 'fail', stage: 'install', summary: `install failed: ${npmReason(install.output)}`, detail: install.output });
   }

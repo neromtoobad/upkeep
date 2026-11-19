@@ -188,10 +188,14 @@ test('when Kane cannot check, the run stops and blames nothing', async () => {
   }
 });
 
-test('not signed in to Kane: stops before a worktree is made', async () => {
+test('not signed in to Kane: "the check cannot run", before a worktree is made', async () => {
   const { dir, cleanup } = await shop();
   try {
-    await assert.rejects(upgradeRun({ projectDir: dir, say: quiet, parts: world({ signedIn: false }).parts }), /Kane CLI is not signed in\. Run: kane-cli login --oauth/);
+    await assert.rejects(upgradeRun({ projectDir: dir, say: quiet, parts: world({ signedIn: false }).parts }), (error) => {
+      assert.ok(error instanceof CheckUnavailable, 'the same footing as Kane being out of credits: exit 4');
+      assert.match(error.message, /Kane CLI is not signed in\. Run: kane-cli login --oauth/);
+      return true;
+    });
     assert.equal((await git(['branch', '--list', 'upkeep/*'], dir)).trim(), '');
   } finally {
     await cleanup();
@@ -292,6 +296,101 @@ test('recordings only move forward on a pass: a failing check cannot leave them 
     const ledger = await readLedger(join(runs, (await readdir(runs))[0]));
     assert.deepEqual(ledger.filter((entry) => entry.type === 'check').map((entry) => entry.recordingsRestored ?? false), [false, false, true, true], 'the ledger says when recordings were put back');
   } finally {
+    await cleanup();
+  }
+});
+
+test('a budget needs a readable balance: without one the run refuses to start', async () => {
+  const { dir, cleanup } = await shop();
+  try {
+    const parts = { ...world().parts, readCredits: async () => null };
+    await assert.rejects(upgradeRun({ projectDir: dir, options: { budget: 100 }, say: quiet, parts }), (error) => error instanceof RunStopped && /--budget needs `kane-cli balance` to answer/.test(error.message));
+    assert.equal((await git(['branch', '--list', 'upkeep/*'], dir)).trim(), '');
+  } finally {
+    await cleanup();
+  }
+});
+
+test('stopped by the person mid-run: what landed stays, the rest is dropped, the worktree is removed, the report is written', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world();
+  const stopping = new AbortController();
+  let checks = 0;
+  const parts = {
+    ...w.parts,
+    stagedCheck: async (input) => {
+      checks += 1;
+      const verdict = await w.parts.stagedCheck(input);
+      if (checks === 3) stopping.abort(); // Ctrl-C arrives during the third check
+      return verdict;
+    },
+  };
+  try {
+    const said = [];
+    const result = await upgradeRun({ projectDir: dir, options: { signal: stopping.signal }, say: (line) => said.push(line), parts });
+    assert.equal(result.interrupted, true);
+    assert.equal(checks, 3, 'no check starts after the stop');
+    assert.deepEqual((await git(['log', '--format=%s', `main..${result.branch}`], dir)).split('\n'), ['Bump 2 packages'], 'the set verified before the stop is kept');
+    assert.equal(await git(['worktree', 'list'], dir).then((text) => text.split('\n').length), 1, 'worktree removed');
+    assert.deepEqual(result.blocked, [], 'the upgrade being checked is not blamed');
+    assert.ok(said.some((line) => /2 packages not tried: you stopped the run/.test(line)));
+    const ledger = await readLedger(result.runDir);
+    assert.deepEqual([ledger.at(-1).type, ledger.at(-1).reason], ['stopped', 'stopped by you before it finished']);
+    assert.match(await readFile(join(result.runDir, 'report.md'), 'utf8'), /\*\*Stopped early:\*\* stopped by you before it finished/);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('environment files git does not track are copied into the worktree and never committed', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world({ candidates: [AXIOS] });
+  let envSeen = null;
+  const parts = {
+    ...w.parts,
+    stagedCheck: async (input) => {
+      envSeen ??= await readFile(join(input.cwd, '.env.local'), 'utf8').catch(() => null);
+      return w.parts.stagedCheck(input);
+    },
+  };
+  try {
+    await writeFile(join(dir, '.env.local'), 'VITE_API=http://localhost:9999\n'); // untracked, and not ignored either
+    const said = [];
+    const result = await upgradeRun({ projectDir: dir, say: (line) => said.push(line), parts });
+    assert.equal(envSeen, 'VITE_API=http://localhost:9999\n');
+    assert.ok(said.some((line) => /copied \.env\.local into the worktree \(never committed\)/.test(line)));
+    assert.deepEqual((await git(['show', '--name-only', '--format=', result.branch], dir)).split('\n'), ['package.json']);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('a second run on the same repository is refused while the first is paused', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world();
+  let release;
+  const paused = new Promise((resolve) => (release = resolve));
+  let started;
+  const running = new Promise((resolve) => (started = resolve));
+  const parts = {
+    ...w.parts,
+    stagedCheck: async (input) => {
+      started();
+      await paused; // the first run sits in its baseline check
+      return w.parts.stagedCheck(input);
+    },
+  };
+  try {
+    const first = upgradeRun({ projectDir: dir, say: quiet, parts });
+    await running;
+    // Another process would be refused; this test is one process, so the lock is given another live pid.
+    const { worktreePathFor } = await import('../src/workspace/worktree.mjs');
+    await writeFile(join(worktreePathFor(dir), '..', 'run.lock'), String(process.ppid));
+    await assert.rejects(upgradeRun({ projectDir: dir, say: quiet, parts: w.parts }), (error) => error instanceof RunStopped && /another Upkeep run is already working on this repository/.test(error.message));
+    release();
+    await first;
+  } finally {
+    release();
     await cleanup();
   }
 });

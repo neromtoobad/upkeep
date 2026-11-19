@@ -6,7 +6,9 @@ import { createHash } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 import { makePlan } from '../plan/make-plan.mjs';
 import { resolveConfig } from '../config/resolve-config.mjs';
-import { openWorktree, commitAll, discardChanges, git, gitRaw } from '../workspace/worktree.mjs';
+import { openWorktree, commitAll, discardChanges, git, gitRaw, RunInProgress } from '../workspace/worktree.mjs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { writeVersions } from '../apply/set-versions.mjs';
 import { stagedCheck } from '../check/staged-check.mjs';
 import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
@@ -26,17 +28,53 @@ export class RunStopped extends Error {}
 /** The run spent what it was allowed to. What has landed stays; the rest is left for another run. */
 class BudgetReached extends Error {}
 
+/** The person stopped the run (Ctrl-C). What has landed stays; nothing else is concluded. */
+class Interrupted extends Error {
+  constructor() {
+    super('stopped by you before it finished');
+  }
+}
+
 function runStamp(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
+const execFileP = promisify(execFile);
+
 /** Copy installed packages into the worktree so the first install is quick. Clones on APFS. */
 async function seedNodeModules(from, to) {
   if (!(await exists(join(from, 'node_modules')))) return false;
-  const flags = process.platform === 'darwin' ? '-cR' : '-R --reflink=auto';
-  const result = await runCommand(`cp ${flags} node_modules "${join(to, 'node_modules')}"`, { cwd: from, timeoutMs: 5 * 60_000 });
-  return result.code === 0;
+  // Arguments, not a shell string: a folder name must never be read as shell.
+  const flags = process.platform === 'darwin' ? ['-cR'] : ['-R', '--reflink=auto'];
+  try {
+    await execFileP('cp', [...flags, join(from, 'node_modules'), join(to, 'node_modules')], { timeout: 5 * 60_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Environment files git does not track (.env, .env.local, …) are not in a
+ * fresh worktree, and many apps will not build or boot without them. Copy the
+ * ones at the top of the project. They are never committed.
+ * @returns {Promise<string[]>} the file names copied
+ */
+async function seedEnvFiles(from, to) {
+  const copied = [];
+  let names = [];
+  try {
+    names = (await readdir(from)).filter((name) => /^\.env(\..+)?$/.test(name));
+  } catch {
+    return copied;
+  }
+  for (const name of names) {
+    if (await exists(join(to, name))) continue; // tracked: already there
+    await copyFile(join(from, name), join(to, name)).catch(() => {});
+    if (await exists(join(to, name))) copied.push(name);
+  }
+  return copied;
 }
 
 /** Kane keeps a flow's recorded steps in output-<name>/ beside it. Bring along the ones git does not track. */
@@ -143,11 +181,22 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
 
   const kane = await readKaneStatus();
   if (!kane.signedIn) {
-    throw new RunStopped(/not installed/.test(kane.detail) ? kane.detail : 'Kane CLI is not signed in. Run: kane-cli login --oauth');
+    // Nothing can be checked without Kane: the same footing as any other check that cannot run.
+    throw new CheckUnavailable({ outcome: 'error', summary: /not installed/.test(kane.detail) ? kane.detail : 'Kane CLI is not signed in. Run: kane-cli login --oauth' });
   }
   const creditsBefore = await creditsLeft();
+  if (options.budget !== undefined && creditsBefore === null) {
+    throw new RunStopped('--budget needs `kane-cli balance` to answer, and it did not. Without it Upkeep cannot tell what a check cost, so it will not start a run it could not stop.');
+  }
+  const interrupted = () => options.signal?.aborted === true;
 
-  const work = await openWorktree(projectDir);
+  let work;
+  try {
+    work = await openWorktree(projectDir);
+  } catch (error) {
+    if (error instanceof RunInProgress) throw new RunStopped(error.message);
+    throw error;
+  }
   const runDir = join(projectDir, '.upkeep', 'runs', runStamp());
   await mkdir(join(runDir, 'evidence'), { recursive: true });
   // Keep Upkeep's own notes out of `git status` without editing a tracked file.
@@ -180,8 +229,15 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   if (work.dirty) say('  note    you have uncommitted changes; Upkeep works from your last commit');
   say('');
 
+  // A rough idea of the cost before anything is spent, from what the demo runs measured.
+  say(`  cost    at least ${plural(plan.units.some((u) => u.breaking) && plan.units.some((u) => !u.breaking) ? 3 : 2, 'check')} (about 8 Kane credits each for ${plural(config.flows.length, 'flow')} that replay);`);
+  say('          each upgrade that breaks the app adds about 4 checks and 50 to 150 credits');
+  say('');
+
   const seeded = await seedNodeModules(projectDir, work.projectDir);
   await seedRecordings(projectDir, work.projectDir, config.flows);
+  const envFiles = await seedEnvFiles(projectDir, work.projectDir);
+  if (envFiles.length > 0) say(`  env     copied ${envFiles.join(', ')} into the worktree (never committed)`);
   const manifestPath = (await git(['rev-parse', '--show-prefix'], work.projectDir)) + 'package.json';
   const lockTracked = (await git(['ls-files', 'package-lock.json'], work.projectDir)) !== '';
 
@@ -189,6 +245,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   let spent = 0;
   let policyPath = null;
   const check = async (units, { keepManifest = false, label, speed = 'full', upTo = 'kane' } = {}) => {
+    if (interrupted()) throw new Interrupted();
     if (options.budget !== undefined && spent >= options.budget) {
       throw new BudgetReached(`the budget of ${options.budget} Kane credits is used up (${Number(spent.toFixed(2))} spent)`);
     }
@@ -204,6 +261,11 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
     // True when the failing check had rewritten the recordings and they were put back.
     const recordingsRestored = verdict.outcome !== 'pass' || verdict.partial ? await recordings.restore() : false;
+    // Stopped by the person mid-check: whatever came back says nothing about the upgrade.
+    if (interrupted()) {
+      await recordings.restore();
+      throw new Interrupted();
+    }
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
     // Kane's policy engine on the pack: flows that verify nothing, and steps Kane healed.
@@ -241,6 +303,9 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     if (baseline.outcome === 'fail') {
       throw new RunStopped(`the app does not pass its own flows before any upgrade (${baseline.summary}). Fix that first; Upkeep needs a working starting point.`);
     }
+    if (baseline.policy === null && baseline.packs.length > 0) {
+      say('      note: Kane CLI could not be asked whether every flow verifies something (evidence verdict gave no answer)');
+    }
     if (baseline.policy?.withoutChecks > 0) {
       throw new RunStopped(
         `${plural(baseline.policy.withoutChecks, 'flow')} of ${config.flows.length} ${baseline.policy.withoutChecks === 1 ? 'verifies' : 'verify'} nothing (Kane CLI: tests without checks). ` +
@@ -254,6 +319,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       work.projectDir,
       'Record the Kane flows on the current versions\n\nSteps recorded by Kane CLI before any upgrade, so later runs replay them.',
       recordingsOf(config.flows),
+      envFiles,
     );
     if (recorded) say(`      recorded the flows: ${recorded.slice(0, 7)}`);
     say('');
@@ -274,11 +340,11 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
         check: (subset, speed, upTo) => check(subset, { label: title, speed, upTo }),
         fix: fixer,
         land: async (landedUnits, verdict, repair) => {
-          const sha = await commitAll(work.projectDir, commitMessage(landedUnits, verdict, repair));
+          const sha = await commitAll(work.projectDir, commitMessage(landedUnits, verdict, repair), ['.'], envFiles);
           await record({ type: 'landed', units: landedUnits.map((unit) => unit.id), commit: sha, fixed: Boolean(repair), rounds: repair?.rounds });
           say(`      landed ${sha ? sha.slice(0, 7) : '(no change)'}: ${landedUnits.map((unit) => unit.id).join(', ')}${repair ? '  (with a fix)' : ''}`);
         },
-        discard: async () => discardChanges(work.projectDir),
+        discard: async () => discardChanges(work.projectDir, envFiles),
         maxChecksPerSearch: options.maxChecksPerSearch,
         onEvent: (event) => {
           if (event.type === 'culprit') say(`      culprit: ${event.units.join(' + ')}${event.separated ? '' : '  (search budget ran out; not fully separated)'}`);
@@ -293,13 +359,14 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       say('');
     }
   } catch (error) {
-    if (!(error instanceof BudgetReached)) {
+    if (!(error instanceof BudgetReached) && !(error instanceof Interrupted)) {
       // The report of a run that had to stop should say why.
       await record({ type: 'stopped', reason: error instanceof CheckUnavailable ? `the check could not run: ${error.message}` : error.message }).catch(() => {});
       throw error;
     }
     // Whatever was being tried is not verified: put the worktree back to the last commit.
-    await discardChanges(work.projectDir);
+    await discardChanges(work.projectDir, envFiles).catch(() => {});
+    result.interrupted = error instanceof Interrupted;
     result.stoppedEarly = error.message;
     await record({ type: 'stopped', reason: error.message });
     say(`  stopped: ${error.message}`);
@@ -313,7 +380,8 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     await writeFile(join(runDir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
     await writeFile(join(runDir, 'report.md'), renderReport(runRecord, ledger, { agentName: options.agentName }));
     await writeFile(join(runDir, 'report.html'), await renderRunHtml(runDir, { run: runRecord, ledger, agentName: options.agentName }));
-    if (!options.keepWorktree) await work.remove();
+    if (options.keepWorktree) await work.unlock();
+    else await work.remove();
   }
 
   const landedCount = result.landed.reduce((sum, entry) => sum + entry.units.reduce((n, unit) => n + unit.packages.length, 0), 0);
@@ -322,7 +390,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   say(`  ${plural(landedCount, 'package')} upgraded and verified on branch ${work.branch}`);
   if (blockedCount > 0) say(`  ${plural(blockedCount, 'package')} held back: ${result.blocked.map((entry) => entry.units.map((unit) => unit.id).join(' + ')).join(', ')}`);
   const untried = plan.candidates.length - landedCount - blockedCount;
-  if (result.stoppedEarly && untried > 0) say(`  ${plural(untried, 'package')} not tried: the budget ran out. Run again to continue from the branch.`);
+  if (result.stoppedEarly && untried > 0) say(`  ${plural(untried, 'package')} not tried: ${result.interrupted ? 'you stopped the run' : 'the budget ran out'}. What landed is on the branch.`);
   say(`  report: ${join(runDir, 'report.html')}  (also report.md)`);
   say(`  Kane evidence for every check: ${join(runDir, 'evidence')}`);
   if (landedCount > 0 && options.pullRequest) {
@@ -330,6 +398,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       result.pullRequest = await openPullRequest({
         repoRoot: work.repoRoot,
         branch: work.branch,
+        base: work.baseBranch,
         title: `Upkeep: upgrade ${plural(landedCount, 'package')}, verified by Kane CLI`,
         bodyFile: join(runDir, 'report.md'),
       });

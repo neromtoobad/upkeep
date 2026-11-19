@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { git, openWorktree, commitAll, discardChanges, branchName, worktreePathFor } from '../src/workspace/worktree.mjs';
+import { git, openWorktree, commitAll, discardChanges, branchName, worktreePathFor, RunInProgress } from '../src/workspace/worktree.mjs';
+import { spawn } from 'node:child_process';
 
 async function repoWith(files) {
   const dir = await realpath(await mkdtemp(join(tmpdir(), 'upkeep-wt-')));
@@ -127,6 +128,85 @@ test('commitAll works when the tool folders are gitignored, as they usually are'
     await writeFile(join(work.projectDir, 'flows/output-checkout/steps.json'), '[]');
     await commitAll(work.projectDir, 'Bump v');
     assert.equal(await git(['show', '--name-only', '--format=', 'HEAD'], work.projectDir), 'package.json');
+    await work.remove();
+  } finally {
+    await cleanup();
+  }
+});
+
+test('one run per repository: a second run is refused while the first is alive, and allowed once it is gone', async () => {
+  const { dir, cleanup } = await repoWith({ 'package.json': '{}' });
+  const other = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
+  try {
+    const lock = join(worktreePathFor(dir), '..', 'run.lock');
+    await mkdir(join(lock, '..'), { recursive: true });
+    await writeFile(lock, String(other.pid));
+    await assert.rejects(openWorktree(dir, { branch: 'upkeep/test' }), (error) => {
+      assert.ok(error instanceof RunInProgress);
+      assert.match(error.message, new RegExp(`another Upkeep run is already working on this repository \\(process ${other.pid}\\)`));
+      return true;
+    });
+    assert.equal(await git(['branch', '--list', 'upkeep/test'], dir), '', 'the refused run made no branch');
+
+    other.kill();
+    await new Promise((resolve) => other.on('close', resolve));
+    const work = await openWorktree(dir, { branch: 'upkeep/test' }); // the holder is dead: a stale lock
+    assert.equal(await readFile(lock, 'utf8'), String(process.pid));
+    await work.remove();
+    assert.equal(await exists(lock), false, 'the lock goes with the worktree');
+  } finally {
+    other.kill();
+    await cleanup();
+  }
+});
+
+test('openWorktree records the branch a pull request should go to', async () => {
+  const { dir, cleanup } = await repoWith({ 'package.json': '{}' });
+  try {
+    await git(['checkout', '-q', '-b', 'develop'], dir);
+    const work = await openWorktree(dir, { branch: 'upkeep/test' });
+    assert.equal(work.baseBranch, 'develop');
+    await work.remove();
+  } finally {
+    await cleanup();
+  }
+});
+
+test('installed packages and copied-in files are never committed and survive a discard, ignored or not', async () => {
+  // This repository ignores nothing: no .gitignore at all.
+  const { dir, cleanup } = await repoWith({ 'package.json': '{"v":1}\n', 'src/app.js': 'old\n' });
+  try {
+    const work = await openWorktree(dir, { branch: 'upkeep/test' });
+    await mkdir(join(work.projectDir, 'node_modules/left-pad'), { recursive: true });
+    await writeFile(join(work.projectDir, 'node_modules/left-pad/index.js'), 'module.exports = 1\n');
+    await writeFile(join(work.projectDir, '.env.local'), 'API_KEY=secret\n');
+    await writeFile(join(work.projectDir, 'package.json'), '{"v":2}\n');
+
+    await commitAll(work.projectDir, 'Bump v', ['.'], ['.env.local']);
+    assert.equal(await git(['show', '--name-only', '--format=', 'HEAD'], work.projectDir), 'package.json');
+
+    await writeFile(join(work.projectDir, 'src/app.js'), 'a patch that did not work\n');
+    await writeFile(join(work.projectDir, 'src/stray.js'), 'stray\n');
+    await discardChanges(work.projectDir, ['.env.local']);
+    assert.equal(await readFile(join(work.projectDir, 'src/app.js'), 'utf8'), 'old\n');
+    assert.equal(await exists(join(work.projectDir, 'src/stray.js')), false);
+    assert.equal(await exists(join(work.projectDir, 'node_modules/left-pad/index.js')), true, 'installed packages stay');
+    assert.equal(await readFile(join(work.projectDir, '.env.local'), 'utf8'), 'API_KEY=secret\n', 'the copied env file stays');
+    await work.remove();
+  } finally {
+    await cleanup();
+  }
+});
+
+test('a commit the repository refuses (a hook) is reported as that, not bypassed', async () => {
+  const { dir, cleanup } = await repoWith({ 'package.json': '{"v":1}\n' });
+  try {
+    const work = await openWorktree(dir, { branch: 'upkeep/test' });
+    const hooks = join(dir, '.git/hooks');
+    await mkdir(hooks, { recursive: true });
+    await writeFile(join(hooks, 'pre-commit'), '#!/bin/sh\necho "lint failed" >&2\nexit 1\n', { mode: 0o755 });
+    await writeFile(join(work.projectDir, 'package.json'), '{"v":2}\n');
+    await assert.rejects(commitAll(work.projectDir, 'Bump v'), /the commit was refused \(a commit hook, or signing\): .*lint failed/s);
     await work.remove();
   } finally {
     await cleanup();

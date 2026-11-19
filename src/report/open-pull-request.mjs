@@ -16,11 +16,13 @@ export class PullRequestFailed extends Error {}
  * @param {string} input.branch     the upkeep/… branch
  * @param {string} input.title
  * @param {string} input.bodyFile   path to report.md
+ * @param {string} [input.base]     branch the pull request goes to (default: the one checked out)
  * @param {string} [input.remote]
  * @returns {Promise<string>} the pull request URL
  */
-export async function openPullRequest({ repoRoot, branch, title, bodyFile, remote = 'origin' }) {
-  const base = await git(['rev-parse', '--abbrev-ref', 'HEAD'], repoRoot);
+export async function openPullRequest({ repoRoot, branch, title, bodyFile, base: givenBase, remote = 'origin' }) {
+  // The branch the run started from; the one checked out now only as a fallback.
+  const base = givenBase ?? (await git(['rev-parse', '--abbrev-ref', 'HEAD'], repoRoot));
   const byHand = `git push -u ${remote} ${branch} && gh pr create --head ${branch} --base ${base} --title "${title}" --body-file "${bodyFile}"`;
 
   if ((await git(['remote'], repoRoot)).split('\n').filter(Boolean).indexOf(remote) === -1) {

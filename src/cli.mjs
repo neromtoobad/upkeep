@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { makePlan, renderPlan } from './plan/make-plan.mjs';
 import { upgradeRun, RunStopped } from './run/upgrade-run.mjs';
 import { CheckUnavailable } from './loop/land-upgrades.mjs';
+import { stopAll } from './check/run-command.mjs';
 import { makeFixer } from './agent/fix-loop.mjs';
 import { resolveAgent } from './agent/ask-agent.mjs';
 import { handoffDir, openHandoff, makeHandoffAsk, noteProgress, writeState, waitForTurn, continueRun } from './agent/handoff.mjs';
@@ -217,6 +218,19 @@ export async function main(argv, io = {}) {
       }
     };
     if (handoff) await openHandoff(handoff);
+
+    // Ctrl-C: stop npm, the app server, Kane CLI and the agent (they run in
+    // their own process groups, which the terminal's signal does not reach),
+    // then let the run unwind: keep what landed, remove the worktree, write the report.
+    const stopping = new AbortController();
+    const onSignal = () => {
+      if (stopping.signal.aborted) process.exit(130); // a second Ctrl-C: leave now
+      out('\nStopping: ending the current check and cleaning up. Press Ctrl-C again to leave at once.\n');
+      stopping.abort();
+      stopAll();
+    };
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
     try {
       const result = await upgradeRun({
         projectDir,
@@ -229,12 +243,14 @@ export async function main(argv, io = {}) {
           agentName: agent?.name,
           pullRequest: Boolean(flags.pr),
           budget,
+          signal: stopping.signal,
         },
         say,
         fix,
       });
       // 0: everything behind was upgraded. 3: some were held back or not tried. Both leave a usable branch.
-      const exit = result.blocked.length > 0 || result.stoppedEarly ? 3 : 0;
+      // 130: you stopped it; what had landed is still on the branch.
+      const exit = result.interrupted ? 130 : result.blocked.length > 0 || result.stoppedEarly ? 3 : 0;
       if (handoff) await writeState(handoff, { status: 'finished', exit, summary: lines.slice(lines.findLastIndex((line) => line.startsWith('Done in'))) });
       return exit;
     } catch (error) {
@@ -253,6 +269,9 @@ export async function main(argv, io = {}) {
       }
       await stop(error.message);
       throw error;
+    } finally {
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
     }
   }
 

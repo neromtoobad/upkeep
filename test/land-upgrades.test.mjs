@@ -291,6 +291,22 @@ test('when B only builds after A is upgraded, A lands first and only B goes to t
   ]);
 });
 
+test('a fixer that says "fixed" without a passing check to show for it does not land', async () => {
+  const landedSets = [];
+  const result = await landUpgrades({
+    units: unitsNamed('a', 'b'),
+    check: async (units) => (ids(units).includes('b') ? { outcome: 'fail', stage: 'kane', failing: ['x_test.md'] } : { outcome: 'pass' }),
+    fix: async () => ({ fixed: true, rounds: 1 }), // no verdict at all
+    land: async (units, verdict) => {
+      assert.equal(verdict.outcome, 'pass');
+      landedSets.push(ids(units).join(','));
+    },
+  });
+  assert.deepEqual(landedSets, ['a']);
+  assert.equal(result.blocked[0].reason, 'the fixer reported a fix without a passing check');
+  assert.equal(result.blocked[0].verdict.outcome, 'fail', 'the report shows the real failure');
+});
+
 test('a check that cannot run stops everything instead of blaming an upgrade', async () => {
   const w = world({ breaks: { c: 'kane' }, unavailableAfter: 2 });
   await assert.rejects(

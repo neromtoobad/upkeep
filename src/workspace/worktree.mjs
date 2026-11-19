@@ -8,7 +8,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
-import { access, mkdir, rm } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
@@ -74,7 +74,20 @@ export async function openWorktree(projectDir, options = {}) {
   }
 
   const dirty = (await git(['status', '--porcelain'], repoRoot)) !== '';
+  // The branch a pull request should go to: the one checked out when the run starts.
+  const baseBranch = await git(['rev-parse', '--abbrev-ref', 'HEAD'], repoRoot);
   const worktree = worktreePathFor(repoRoot);
+
+  // One run per repository at a time. The worktree has a fixed place, so a
+  // second run would delete the first one's work, including the edits of a
+  // paused handoff run.
+  await mkdir(join(worktree, '..'), { recursive: true });
+  const lock = join(worktree, '..', 'run.lock');
+  const holder = Number(await readFile(lock, 'utf8').catch(() => ''));
+  if (holder && holder !== process.pid && isAlive(holder)) {
+    throw new RunInProgress(`another Upkeep run is already working on this repository (process ${holder}). Wait for it to finish, or stop it first.`);
+  }
+  await writeFile(lock, String(process.pid));
 
   // A previous run that was interrupted may have left its worktree behind.
   if (await exists(worktree)) {
@@ -98,20 +111,41 @@ export async function openWorktree(projectDir, options = {}) {
     projectDir: resolve(worktree, inside),
     branch,
     base,
+    baseBranch,
     dirty,
     remove: async () => {
       await git(['worktree', 'remove', '--force', worktree], repoRoot).catch(() => rm(worktree, { recursive: true, force: true }));
       await git(['worktree', 'prune'], repoRoot);
+      await rm(lock, { force: true });
     },
+    /** Let another run start while keeping the worktree (used with --keep-worktree). */
+    unlock: () => rm(lock, { force: true }),
   };
 }
+
+/** Another run holds this repository. */
+export class RunInProgress extends Error {}
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+// Never committed, whatever the repository ignores: installed packages, scratch
+// space, and evidence packs (they name the Kane account that made them).
+const NEVER_COMMITTED = ['node_modules', '.upkeep', '.testmuai/evidence'];
 
 /**
  * Commit everything changed in the project folder except local tool state.
  * @param {string[]} [paths] limit the commit to these paths (missing ones are skipped)
+ * @param {string[]} [never] more paths that must not be committed (files Upkeep copied in, such as .env)
  * @returns {Promise<string|null>} the new commit, or null when nothing changed
  */
-export async function commitAll(worktreeProjectDir, message, paths = ['.']) {
+export async function commitAll(worktreeProjectDir, message, paths = ['.'], never = []) {
   const present = [];
   for (const path of paths) if (path === '.' || (await exists(join(worktreeProjectDir, path)))) present.push(path);
   if (present.length === 0) return null;
@@ -122,18 +156,27 @@ export async function commitAll(worktreeProjectDir, message, paths = ['.']) {
       if (!/ignored by one of your \.gitignore/.test(error.message)) throw error;
     });
   }
-  // Evidence packs name the Kane account that made them, and .upkeep is scratch
-  // space: neither is ever committed, even in a repo that does not ignore them.
-  // (Excluding them in the `add` pathspec fails when they are already ignored.)
-  await git(['reset', '-q', 'HEAD', '--', '.upkeep', '.testmuai/evidence'], worktreeProjectDir);
+  // Unstage what must never be committed, even in a repo that does not ignore it.
+  // (Excluding these in the `add` pathspec fails when they are already ignored.)
+  await git(['reset', '-q', 'HEAD', '--', ...NEVER_COMMITTED, ...never], worktreeProjectDir);
   const staged = await git(['diff', '--cached', '--name-only'], worktreeProjectDir);
   if (staged === '') return null;
-  await git(['commit', '-q', '-m', message], worktreeProjectDir);
+  try {
+    await git(['commit', '-q', '-m', message], worktreeProjectDir);
+  } catch (error) {
+    // The repository's own commit hooks or signing setup said no. That is the
+    // person's rule, so it is reported, not bypassed.
+    throw new Error(`the commit was refused (a commit hook, or signing): ${error.message.replace(/^git commit failed: /, '')}`);
+  }
   return git(['rev-parse', 'HEAD'], worktreeProjectDir);
 }
 
-/** Throw away every uncommitted change in the project folder (installed packages stay). */
-export async function discardChanges(worktreeProjectDir) {
+/**
+ * Throw away every uncommitted change in the project folder.
+ * @param {string[]} [keep] untracked paths to leave alone besides installed packages (files Upkeep copied in)
+ */
+export async function discardChanges(worktreeProjectDir, keep = []) {
   await git(['reset', '-q', '--hard', 'HEAD'], worktreeProjectDir);
-  await git(['clean', '-fdq', '--', '.'], worktreeProjectDir);
+  const excludes = ['node_modules', ...keep].flatMap((path) => ['-e', path]);
+  await git(['clean', '-fdq', ...excludes, '--', '.'], worktreeProjectDir);
 }
