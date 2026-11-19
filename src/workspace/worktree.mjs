@@ -111,7 +111,11 @@ export async function openWorktree(projectDir, options = {}) {
  * @returns {Promise<string|null>} the new commit, or null when nothing changed
  */
 export async function commitAll(worktreeProjectDir, message) {
-  await git(['add', '-A', '--', '.', ':(exclude).upkeep', ':(exclude).testmuai/evidence'], worktreeProjectDir);
+  await git(['add', '-A', '--', '.'], worktreeProjectDir);
+  // Evidence packs name the Kane account that made them, and .upkeep is scratch
+  // space: neither is ever committed, even in a repo that does not ignore them.
+  // (Excluding them in the `add` pathspec fails when they are already ignored.)
+  await git(['reset', '-q', 'HEAD', '--', '.upkeep', '.testmuai/evidence'], worktreeProjectDir);
   const staged = await git(['diff', '--cached', '--name-only'], worktreeProjectDir);
   if (staged === '') return null;
   await git(['commit', '-q', '-m', message], worktreeProjectDir);

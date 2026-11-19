@@ -116,6 +116,23 @@ test('commitAll commits changes but never local tool state; discardChanges reset
   }
 });
 
+test('commitAll works when the tool folders are gitignored, as they usually are', async () => {
+  const { dir, cleanup } = await repoWith({ 'package.json': '{"v":1}\n', '.gitignore': '.testmuai/\n.upkeep/\nflows/output-*/\n' });
+  try {
+    const work = await openWorktree(dir, { branch: 'upkeep/test' });
+    await writeFile(join(work.projectDir, 'package.json'), '{"v":2}\n');
+    await mkdir(join(work.projectDir, '.testmuai/evidence'), { recursive: true });
+    await writeFile(join(work.projectDir, '.testmuai/evidence/run.evidence'), 'pack');
+    await mkdir(join(work.projectDir, 'flows/output-checkout'), { recursive: true });
+    await writeFile(join(work.projectDir, 'flows/output-checkout/steps.json'), '[]');
+    await commitAll(work.projectDir, 'Bump v');
+    assert.equal(await git(['show', '--name-only', '--format=', 'HEAD'], work.projectDir), 'package.json');
+    await work.remove();
+  } finally {
+    await cleanup();
+  }
+});
+
 test('outside a git repository the error says what to do', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'upkeep-nogit-'));
   try {
