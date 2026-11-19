@@ -97,7 +97,8 @@ export async function runKaneSuite({ cwd, flows, parallel = 3, heal = true, time
 
   // Retry only what Kane could not run. Flows that passed or failed keep their result.
   if (verdict.outcome === 'error' && verdict.unjudged.length > 0 && verdict.unjudged.length <= flows.length) {
-    const again = flows.filter((path) => verdict.unjudged.some((flow) => path.endsWith(flow)));
+    // Whole file names only: "cart_test.md" must not also select "minicart_test.md".
+    const again = flows.filter((path) => verdict.unjudged.includes(path.replace(/^.*\//, '')));
     if (again.length > 0) {
       const retry = await once(again);
       const retried = new Map(retry.suite.flows.map((flow) => [flow.flow, flow]));

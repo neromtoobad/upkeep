@@ -145,23 +145,23 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Plans upgrades from `npm outdated`, keeps each range style, labels a jump breaking by the caret rule | `src/plan/outdated.mjs:40` | `test/outdated.test.mjs` |
 | Moves upgrades that need each other as one unit, from the peer ranges of installed and target versions | `src/plan/peer-links.mjs:28` | `test/peer-links.test.mjs`; `upkeep plan` prints each reason |
 | Finds the smallest set of upgrades that breaks the app by delta debugging, including pairs that only break together | `src/isolate/ddmin.mjs:20` | `test/ddmin.test.mjs` |
-| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:57` | `test/staged-check.test.mjs` |
+| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:59` | `test/staged-check.test.mjs` |
 | Runs the flows with `kane-cli testrun run --agent --headless` | `src/kane/run-suite.mjs:45` | `test/run-suite.test.mjs`; every check in `evidence/*/ledger.ndjson` |
 | A flow Kane could not run (runner crash, no browser) is never read as a broken app, even though Kane exits 1 for both | `src/kane/read-suite-stream.mjs:122` | `test/read-suite-stream.test.mjs`, against a real capture of a runner crash |
 | Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:66` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
 | The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check | `src/loop/land-upgrades.mjs:134` | `test/land-upgrades.test.mjs`; `node tools/check-claims.mjs` checks it in the published ledgers |
 | Nothing is committed unless a check passed on exactly that set of upgrades | `src/loop/land-upgrades.mjs:88` | `node tools/check-claims.mjs` checks every landed set in `evidence/*/ledger.ndjson` |
 | Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-2110-all-twelve/agent/js-cookie/round-1-task.md` |
-| Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack | `src/kane/read-evidence.mjs:87` | `test/read-evidence.test.mjs` |
-| After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:90` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-2110-all-twelve/report.md` |
+| Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack | `src/kane/read-evidence.mjs:107` | `test/read-evidence.test.mjs` |
+| After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:95` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-2110-all-twelve/report.md` |
 | An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane | `src/agent/handoff.mjs:54` | `test/handoff.test.mjs` |
 | `upkeep mcp` serves the same loop as tools over the Model Context Protocol, with no dependencies | `src/mcp/server.mjs:142` | `test/mcp-server.test.mjs`, including a real server process on stdio |
-| An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
+| An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:133` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
-| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:96` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
+| Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:77` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
-| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:193` | `test/upgrade-run.test.mjs` |
+| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:250` | `test/upgrade-run.test.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in

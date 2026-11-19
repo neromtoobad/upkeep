@@ -81,6 +81,7 @@ test('each thing that cannot be worked out has an error that says what to do', a
     [{ 'package.json': VITE, 'flows/a_test.md': flow('https://shop.example.com') }, /is not this machine/],
     [{ 'package.json': { name: 'x' }, 'flows/a_test.md': flow('http://localhost:3000') }, /could not tell how to serve this app/],
     [{ 'flows/a_test.md': flow('http://localhost:3000') }, /no package\.json in/],
+    [{ 'package.json': VITE, 'flows/shop/login_test.md': flow('http://localhost:4173'), 'flows/admin/login_test.md': flow('http://localhost:4173') }, /two flows have the same file name \(flows\/admin\/login_test\.md and flows\/shop\/login_test\.md\)/],
   ];
   for (const [files, message] of cases) {
     const { dir, cleanup } = await project(files);

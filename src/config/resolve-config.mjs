@@ -93,6 +93,17 @@ export async function resolveConfig(projectDir) {
     );
   }
 
+  // Kane's evidence and Upkeep's reports name a flow by its file name, so two
+  // flows with the same name in different folders could not be told apart.
+  const names = new Map();
+  for (const flow of flows) {
+    const name = flow.replace(/^.*\//, '');
+    if (names.has(name)) {
+      throw new Error(`two flows have the same file name (${names.get(name)} and ${flow}). Kane CLI's evidence names flows by file name, so give them different names.`);
+    }
+    names.set(name, flow);
+  }
+
   let url = file.url;
   if (url) {
     source.url = 'upkeep.config.json';

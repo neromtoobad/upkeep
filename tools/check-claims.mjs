@@ -7,7 +7,11 @@
 //
 // What it checks:
 //   1. Every claim in tools/claims.json points at code that exists, and the
-//      README table carries the same file:line.
+//      README's claims table is exactly the table those claims generate
+//      (same wording, same file:line). One PASS or FAIL per claim.
+//      This checks that a claim points at real code and that the README says
+//      what the list says. Whether the code does what the claim says is what
+//      the test named in each row is for; `npm test` runs those.
 //   2. Every published run in evidence/ obeys the rules the README states:
 //      nothing landed without a passing check on exactly that set, and nothing
 //      was blamed without a full (heal-on) failing check.
@@ -55,14 +59,20 @@ if (process.argv.includes('--write')) {
     await writeFile(join(root, 'README.md'), readme);
   }
 }
-let stale = 0;
+// The README must carry exactly the generated table: same claims, same wording, same lines.
+const inReadme = readme.includes(START) && readme.includes(END) ? readme.slice(readme.indexOf(START) + START.length, readme.indexOf(END)).trim() : null;
+if (inReadme === null) fail('README has no claims table between its markers');
+const readmeRows = new Set((inReadme ?? '').split('\n'));
 for (const row of rows) {
-  if (!readme.includes(`\`${row.file}:${row.line}\``)) {
-    stale += 1;
-    fail(`README is out of date for ${row.file}: the code is at line ${row.line} (run with --write)`);
-  }
+  const line = `| ${row.claim} | \`${row.file}:${row.line}\` | ${row.check} |`;
+  const short = row.claim.length > 70 ? `${row.claim.slice(0, 70)}…` : row.claim;
+  if (readmeRows.has(line)) pass(`claim → ${row.file}:${row.line}  ${short}`);
+  else fail(`README row is missing or out of date for "${short}" (${row.file}:${row.line}); run with --write`);
 }
-if (rows.length === claims.length && stale === 0) pass(`${rows.length} claims point at code that exists, and the README has the same lines`);
+if (inReadme !== null && inReadme !== table) {
+  const extra = [...readmeRows].filter((line) => line.startsWith('| ') && !table.split('\n').includes(line));
+  for (const line of extra) fail(`README has a claims row that is not in tools/claims.json: ${line.slice(0, 90)}…`);
+}
 
 // Paths the claims name as checks must exist too.
 const named = new Set();
@@ -134,8 +144,9 @@ if (runs.length > 0) {
   const leaks = [];
   for (const file of files) {
     if (file.endsWith('.evidence')) leaks.push(`${file} is a Kane evidence pack`);
-    if (!/\.(md|json|ndjson|txt|ya?ml)$/.test(file)) continue;
-    const text = await read(file);
+    if (!/\.(md|json|ndjson|txt|ya?ml|html)$/.test(file)) continue;
+    // Embedded screenshots are base64 and can spell anything by chance; the text around them cannot.
+    const text = (await read(file)).replace(/data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+/g, '');
     const emails = (text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g) ?? []).filter((email) => !email.endsWith('@example.com') && !/@(\d|v\d)/.test(email));
     if (emails.length > 0) leaks.push(`${file} contains an email address`);
     if (/\/(Users|home)\/[A-Za-z0-9._-]+\//.test(text)) leaks.push(`${file} contains a home folder path`);

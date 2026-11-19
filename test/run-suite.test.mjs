@@ -74,6 +74,19 @@ test('a flow Kane could not run is retried alone, and its retry result is used',
   });
 });
 
+test('the retry selects whole file names: cart is retried, minicart is not', async () => {
+  const flows = ['flows/cart_test.md', 'flows/minicart_test.md'];
+  const script = [
+    { exit: 1, events: [START, plan(...flows), end(flows[0], 'broken', 'runner crashed'), end(flows[1], 'passed')] },
+    { exit: 0, events: [START, plan(flows[0]), end(flows[0], 'passed')] },
+  ];
+  await withStub(script, async ({ dir, argsOf }) => {
+    const result = await runKaneSuite({ cwd: dir, flows });
+    assert.equal(result.outcome, 'pass');
+    assert.deepEqual((await argsOf(1)).slice(2, 4), ['flows/cart_test.md', '--agent']);
+  });
+});
+
 test('a flow that is still broken after the retry leaves the check unavailable', async () => {
   const broken = { exit: 1, events: [START, plan(...FLOWS), end(FLOWS[0], 'failed', 'real failure'), end(FLOWS[1], 'broken', 'Chrome did not start')] };
   const again = { exit: 1, events: [START, plan(FLOWS[1]), end(FLOWS[1], 'broken', 'Chrome did not start')] };
