@@ -54,7 +54,7 @@ export function renderReport(run, ledger, options = {}) {
   out.push('');
   const headline = [`${plural(run.plan.length, 'package')} behind`];
   headline.push(`${count(landed)} upgraded and verified`);
-  if (fixed.length > 0) headline.push(`${count(fixed)} of those needed a fix`);
+  if (fixed.length > 0) headline.push(`${plural(fixed.length, 'upgrade')} broke the app and ${fixed.length === 1 ? 'was' : 'were'} fixed${count(fixed) === fixed.length ? '' : ` (${plural(count(fixed), 'package')})`}`);
   if (blocked.length > 0) headline.push(`${count(blocked)} held back`);
   out.push(`**${headline.join(' · ')}**`);
   out.push('');

@@ -6,7 +6,7 @@
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const esc = (text) => String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** Escaped, with `backticked` words set as code (agents and Kane both write them). */
-const prose = (text) => esc(text).replace(/`([^`\n]+)`/g, '<code>$1</code>');
+const prose = (text) => esc(text).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
 const sentenceCase = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const minutes = (seconds) => (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`);
 const key = (ids) => [...ids].sort().join(',');
@@ -89,7 +89,10 @@ export function renderHtml(run, ledger, options = {}) {
 
   const sentence = [`<b>${plural(run.plan.length, 'package')}</b> ${run.plan.length === 1 ? 'was' : 'were'} behind.`];
   sentence.push(`<b>${count(landed)}</b> ${count(landed) === 1 ? 'is' : 'are'} upgraded, each one after Kane CLI walked the app in a real browser and it passed.`);
-  if (fixed.length > 0) sentence.push(`<b>${count(fixed)}</b> of those broke the app first and ${count(fixed) === 1 ? 'was' : 'were'} fixed by ${esc(agentName)}.`);
+  if (fixed.length > 0) {
+    const packages = count(fixed) === fixed.length ? '' : ` (${plural(count(fixed), 'package')})`;
+    sentence.push(`<b>${plural(fixed.length, 'upgrade')}</b>${packages} broke the app first and ${fixed.length === 1 ? 'was' : 'were'} fixed by ${esc(agentName)}.`);
+  }
   if (blocked.length > 0) sentence.push(`<b>${count(blocked)}</b> ${count(blocked) === 1 ? 'is' : 'are'} held back.`);
 
   const out = [];

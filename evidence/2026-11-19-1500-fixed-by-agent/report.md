@@ -1,6 +1,6 @@
 # Upkeep report: margin-paper-goods
 
-**1 package behind · 1 upgraded and verified · 1 of those needed a fix**
+**1 package behind · 1 upgraded and verified · 1 upgrade broke the app and was fixed**
 
 Branch `upkeep/2026-11-19-1500` · 4 checks · 11 min · 91.18 Kane credits. Every check is install, build, boot, then Kane CLI walking 3 flows in a real browser at http://localhost:4173.
 
@@ -19,9 +19,9 @@ These upgrades broke the app. Kane CLI caught it, the coding agent changed the a
 
 | # | Applied | Result | Time | Credits |
 |---|---|---|---|---|
-| 1 | nothing (the app as it is) | pass: 3 of 3 flows passed | 70s | 7.71 |
+| 1 | nothing (the app as it is) | pass: 3 of 3 flows passed. | 70s | 7.71 |
 | 2 | date-fns | **fail at kane**: 1 of 3 flows failed: checkout_test.md: assertion_failed: @ step 11 | 138s | 17.07 |
 | 3 | date-fns | **fail at kane**: 1 of 3 flows failed: checkout_test.md: The order route remains blank after waiting and refreshing, so the required confirmation text cannot be verified. | 299s | 45.11 |
-| 4 | date-fns | pass: 3 of 3 flows passed | 136s | 21.29 |
+| 4 | date-fns | pass: 3 of 3 flows passed. | 136s | 21.29 |
 
 Kane CLI evidence packs for each check are in the run folder next to this report.

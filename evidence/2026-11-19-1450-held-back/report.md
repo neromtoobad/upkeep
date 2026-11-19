@@ -25,8 +25,8 @@ Not on the branch. The app does not pass its flows with these, and no fix was ve
 
 | # | Applied | Result | Time | Credits |
 |---|---|---|---|---|
-| 1 | nothing (the app as it is) | pass: 3 of 3 flows passed | 63s | 6.95 |
-| 2 | axios, classnames, prop-types | pass: 3 of 3 flows passed | 64s | 8.3 |
+| 1 | nothing (the app as it is) | pass: 3 of 3 flows passed. | 63s | 6.95 |
+| 2 | axios, classnames, prop-types | pass: 3 of 3 flows passed. | 64s | 8.3 |
 | 3 | date-fns | **fail at kane**: 1 of 3 flows failed: checkout_test.md: Order submission navigated to a blank page; confirmation text remained absent after waits, refresh, and returning to checkout. | 292s | 44.17 |
 
 Kane CLI evidence packs for each check are in the run folder next to this report.

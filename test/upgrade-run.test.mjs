@@ -125,7 +125,7 @@ test('a whole run: safe upgrades land, a breaking one is fixed and lands, anothe
 
     // The report and run record are written, and .upkeep is kept out of git status without touching .gitignore.
     const report = await readFile(join(result.runDir, 'report.md'), 'utf8');
-    assert.match(report, /\*\*4 packages behind · 3 upgraded and verified · 1 of those needed a fix · 1 held back\*\*/);
+    assert.match(report, /\*\*4 packages behind · 3 upgraded and verified · 1 upgrade broke the app and was fixed · 1 held back\*\*/);
     assert.match(report, /Kane CLI caught it, Test Agent changed the app/);
     assert.equal(JSON.parse(await readFile(join(result.runDir, 'run.json'), 'utf8')).agent, 'Test Agent');
     assert.equal(await exists(join(dir, '.gitignore')), false);

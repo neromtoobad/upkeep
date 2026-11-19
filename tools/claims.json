@@ -57,7 +57,7 @@
     "claim": "Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause",
     "file": "src/agent/failure-packet.mjs",
     "find": "export function buildPacket",
-    "check": "`evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md`"
+    "check": "`evidence/2026-11-19-2110-all-twelve/agent/js-cookie/round-1-task.md`"
   },
   {
     "claim": "Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack",
@@ -69,7 +69,7 @@
     "claim": "After the agent edits the app, Kane walks it again; a new failure opens the next round",
     "file": "src/agent/fix-loop.mjs",
     "find": "verdict = await check(units, { keepManifest: true",
-    "check": "`test/fix-loop.test.mjs`; `evidence/2026-11-19-1500-fixed-by-agent/report.md`"
+    "check": "`test/fix-loop.test.mjs`; `evidence/2026-11-19-2110-all-twelve/report.md`"
   },
   {
     "claim": "An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane",

@@ -5,15 +5,21 @@
 Built at the KaneCLI Online Hackathon (TestMu AI), 12–26 November 2026. Coding agent: Claude Code.
 Verifier: [Kane CLI](https://github.com/LambdaTest/kane-cli).
 
-**Proof.** On a shop app pinned to 2021-era packages, Upkeep moved `date-fns` from 1.30.1 to
-4.4.0. The build passed. Kane CLI walked the checkout in a real browser and found the order page
-blank. Upkeep handed Kane's failure to Claude Code, which changed two format strings; Kane walked
-the shop again, all three flows passed, and only then was the upgrade committed. The whole
-exchange is in [`evidence/2026-11-19-1500-fixed-by-agent/`](evidence/2026-11-19-1500-fixed-by-agent/report.md).
+**Proof.** A shop app pinned to 2021-era packages was 12 packages behind (React 17, Vite 4,
+react-hook-form 6, date-fns 1). One command, 34 minutes, no person involved:
 
-| After the upgrade: what Kane saw | After the agent's fix: what Kane saw |
+- **12 of 12 upgraded**, to React 19, Vite 8 and the rest, on a branch of five commits.
+- **4 upgrades broke the app.** One failed the build. Three built fine and only failed in the
+  browser, where Kane CLI found a blank page each time.
+- **Claude Code fixed all 4**, each in one round, working from Kane's own failure record.
+- **Kane CLI passed 3 of 3 flows before every commit.** 27 checks, 557 Kane credits.
+
+The whole run is in [`evidence/2026-11-19-2110-all-twelve/`](evidence/2026-11-19-2110-all-twelve/report.md):
+the report, every check, and what Upkeep sent the agent and got back.
+
+| `date-fns` 1 → 4: what Kane saw after the upgrade | What Kane saw after the agent's fix |
 |---|---|
-| ![A blank page where the order confirmation should be](evidence/2026-11-19-1500-fixed-by-agent/screenshots/check-03-checkout-failed.jpg) | ![The order confirmation with the date 19/11/2026](evidence/2026-11-19-1500-fixed-by-agent/screenshots/check-04-checkout-passed.jpg) |
+| ![A blank page where the order confirmation should be](evidence/2026-11-19-2110-all-twelve/screenshots/check-15-checkout-failed.jpg) | ![The order confirmation with the date 19/11/2026](evidence/2026-11-19-2110-all-twelve/screenshots/check-16-checkout-passed.jpg) |
 | `npm run build` passed. The order page is blank. | "Thanks, Ada Marsh. Order placed on 19/11/2026." |
 
 Both screenshots are Kane CLI's own, taken from its evidence packs.
@@ -70,8 +76,9 @@ Nothing below needs a Kane account or an install. Node 20 or newer.
 
 | Do this | You see |
 |---|---|
-| Open [`evidence/2026-11-19-1500-fixed-by-agent/report.md`](evidence/2026-11-19-1500-fixed-by-agent/report.md) | The loop on a real run: Kane's failure, the agent's change, Kane's pass, every check with time and credits |
-| Open [`agent/date-fns/round-1-task.md`](evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md) in the same folder | Exactly what Kane's result looked like when it reached the agent |
+| Open [`evidence/2026-11-19-2110-all-twelve/report.md`](evidence/2026-11-19-2110-all-twelve/report.md) | The full run: 12 packages, the 4 that broke the app with Kane's words and the agent's fix, and all 27 checks with time and credits |
+| Open [`agent/js-cookie/round-1-task.md`](evidence/2026-11-19-2110-all-twelve/agent/js-cookie/round-1-task.md) in the same folder | Exactly what Kane's result looked like when it reached the agent |
+| Download [`report.html`](evidence/2026-11-19-2110-all-twelve/report.html) and open it | The same report as one offline page, with Kane's before and after screenshots |
 | `node tools/check-claims.mjs` | PASS or FAIL for every claim in the table below, and for the rules in the published ledgers |
 | `npm test` | Every test passes, with no install step |
 | `node bin/upkeep.mjs plan --cwd /path/to/any/npm/project` | The plan for your own project: what is behind, what may break, what moves together and why |
@@ -82,16 +89,16 @@ With a Kane account (`kane-cli login --oauth`) and Claude Code installed, see [R
 
 | Bar (quoted from the event page) | Where |
 |---|---|
-| "It works end to end." | Two real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. |
-| "Kane CLI caught or proved something." | Caught: `date-fns` 4 blanks the order page while the build passes. Proved: three other upgrades and the agent's fix, 3 of 3 flows each. |
-| "Your agent and Kane CLI talked to each other." | Kane's failure record is the agent's task ([`round-1-task.md`](evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md)); the agent's edit is judged by Kane's next walk (`src/agent/fix-loop.mjs`). No person in between. |
+| "It works end to end." | Three real runs in [`evidence/`](evidence/): plan → worktree → install → build → boot → Kane → commit on a branch. The last one upgrades all 12 packages. |
+| "Kane CLI caught or proved something." | Caught: three upgrades that build fine and leave a blank page (`date-fns` 4, `js-cookie` 3, React 19 with its form and markdown libraries). Proved: every one of the five commits, 3 of 3 flows each. |
+| "Your agent and Kane CLI talked to each other." | Kane's failure record is the agent's task (four of them in [`agent/`](evidence/2026-11-19-2110-all-twelve/agent/)); the agent's edit is judged by Kane's next walk (`src/agent/fix-loop.mjs`). No person in between. |
 
 ## Judging criteria
 
 | Criterion (quoted) | Where Upkeep meets it |
 |---|---|
-| **Ships.** "A real flow that runs end to end. Not slides." | `upkeep run` produced the branches and commits recorded in `evidence/*/ledger.ndjson`. |
-| **Verified.** "Kane CLI caught or confirmed something meaningful." | A break from a real upstream release, not a planted bug: the shop is ordinary code written against old versions. Build and bundler said yes; Kane said no. |
+| **Ships.** "A real flow that runs end to end. Not slides." | `upkeep run` produced the branches and commits recorded in `evidence/*/ledger.ndjson`: a 2021-era app moved to React 19 and Vite 8 in one command. |
+| **Verified.** "Kane CLI caught or confirmed something meaningful." | Breaks from real upstream releases, not planted bugs: the shop is ordinary code written against old versions. Three times the build and bundler said yes and Kane said no. |
 | **Closed loop.** "Kane's result feeds back to the agent. Tighter is better." | Kane's verdict decides three things with no person involved: which set of upgrades to try next (the search), what the agent is told, and whether the result is committed or thrown away. |
 | **Craft.** "Would a developer want to install this tonight?" | No dependencies, no config for Vite, Next and Astro, a credit budget, quick checks while searching, a guard against an agent that edits the tests, a report you can paste into a pull request. |
 
@@ -139,9 +146,9 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:63` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
 | The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check | `src/loop/land-upgrades.mjs:134` | `test/land-upgrades.test.mjs`; `node tools/check-claims.mjs` checks it in the published ledgers |
 | Nothing is committed unless a check passed on exactly that set of upgrades | `src/loop/land-upgrades.mjs:88` | `node tools/check-claims.mjs` checks every landed set in `evidence/*/ledger.ndjson` |
-| Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md` |
+| Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-2110-all-twelve/agent/js-cookie/round-1-task.md` |
 | Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack | `src/kane/read-evidence.mjs:87` | `test/read-evidence.test.mjs` |
-| After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:90` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-1500-fixed-by-agent/report.md` |
+| After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:90` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-2110-all-twelve/report.md` |
 | An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane | `src/agent/handoff.mjs:54` | `test/handoff.test.mjs` |
 | `upkeep mcp` serves the same loop as tools over the Model Context Protocol, with no dependencies | `src/mcp/server.mjs:142` | `test/mcp-server.test.mjs`, including a real server process on stdio |
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
@@ -157,7 +164,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Part | Status | Where to look |
 |---|---|---|
 | Kane verdicts in `evidence/` | Real runs, Kane CLI 0.10.6, 19 November 2026 | `evidence/*/ledger.ndjson` has each check's flows, seconds and credits |
-| The agent's fix | Real: Claude Code, headless, one round | `evidence/2026-11-19-1500-fixed-by-agent/agent/` |
+| The agent's fixes | Real: Claude Code, headless, one round each | `evidence/2026-11-19-2110-all-twelve/agent/` holds each task and reply |
 | The app being upgraded | A demo shop written for this project against 2021-era packages. Nothing in it is a planted bug; what breaks is what the new releases changed | `evidence/*/run.json` lists the packages and versions |
 | Unit tests of the loop, the fix loop and the check | Use stand-ins for Kane and for the agent, and say so at the top of each file | `test/land-upgrades.test.mjs`, `test/fix-loop.test.mjs`, `test/staged-check.test.mjs` |
 | Tests of `upkeep run` as a whole | A real git repository, worktree, commits, ledger and report. The plan, the check and the Kane account are stand-ins | `test/upgrade-run.test.mjs` |
@@ -170,7 +177,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 
 ## Not built yet
 
-- A run on someone else's open-source app. Both published runs are on the demo shop.
+- A run on someone else's open-source app. All three published runs are on the demo shop.
 - Package managers other than npm. pnpm, Yarn and Bun projects are not supported.
 - Monorepo workspaces as a whole. A single package in a subfolder works; upgrading across
   workspaces does not.

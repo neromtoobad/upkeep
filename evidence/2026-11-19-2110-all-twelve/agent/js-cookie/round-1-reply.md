@@ -1,0 +1,1 @@
+js-cookie 3.x dropped `Cookies.getJSON`, which caused the `ip.getJSON is not a function` crash on startup. I replaced it with `Cookies.get` + `JSON.parse` for reading the cart cookie, and paired it with `JSON.stringify` on write (`Cookies.set`), since v3 no longer handles plain object/array values implicitly either.

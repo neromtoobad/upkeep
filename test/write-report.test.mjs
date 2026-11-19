@@ -33,7 +33,7 @@ const LEDGER = [
 
 test('the headline counts packages, not units, and states the cost', () => {
   const report = renderReport(RUN, LEDGER, { agentName: 'Claude Code' });
-  assert.match(report, /^# Upkeep report: margin-paper-goods\n\n\*\*4 packages behind · 3 upgraded and verified · 1 of those needed a fix · 1 held back\*\*/);
+  assert.match(report, /^# Upkeep report: margin-paper-goods\n\n\*\*4 packages behind · 3 upgraded and verified · 1 upgrade broke the app and was fixed · 1 held back\*\*/);
   assert.match(report, /Branch `upkeep\/2026-11-19-1450` · 6 checks · 15 min · 61\.4 Kane credits\./);
   assert.match(report, /Kane CLI walking 3 flows in a real browser at http:\/\/localhost:4173/);
 });

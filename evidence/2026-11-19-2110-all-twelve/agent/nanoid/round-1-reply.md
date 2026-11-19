@@ -1,0 +1,1 @@
+nanoid 6.x dropped the default export and only provides the named `nanoid` export, so `src/orders.js` now imports `{ nanoid }` instead of a default import. The call site (`nanoid(8)`) is unchanged since the function signature stayed the same.

@@ -57,7 +57,7 @@ test('text from the run is escaped', () => {
 test('the opening sentence counts packages and names the agent', () => {
   assert.match(html, /<b>4 packages<\/b> were behind\./);
   assert.match(html, /<b>3<\/b> are upgraded, each one after Kane CLI walked the app in a real browser and it passed\./);
-  assert.match(html, /<b>2<\/b> of those broke the app first and were fixed by Claude Code\./);
+  assert.match(html, /<b>2 upgrades<\/b> broke the app first and were fixed by Claude Code\./);
   assert.match(html, /<b>1<\/b> is held back\./);
 });
 
