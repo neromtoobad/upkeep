@@ -12,18 +12,10 @@
 // agent and committing are passed in, so the decisions can be tested alone.
 
 import { ddmin } from '../isolate/ddmin.mjs';
+import { reproduces } from '../check/verdict.mjs';
 
 /** @typedef {import('../plan/group-lockstep.mjs').Unit} Unit */
-
-/**
- * @typedef {object} Verdict
- * @property {'pass'|'fail'|'error'} outcome
- *   'error' means the check itself could not run (Kane CLI not signed in, no
- *   credits, port taken). It says nothing about the upgrade and stops the run.
- * @property {string} [stage]     where it failed: install, build, test, boot or kane
- * @property {string} [signature] how it failed, comparable between two checks
- * @property {string} [summary]   one plain sentence
- */
+/** @typedef {import('../check/verdict.mjs').Verdict} Verdict */
 
 /**
  * @typedef {object} Repair
@@ -97,7 +89,7 @@ export async function landUpgrades({ units, check, fix, land, discard, maxChecks
         if (verdict.outcome === 'pass') return 'pass';
         // A subset that fails some other way (say, an install conflict from a
         // combination the full set did not have) is not evidence either way.
-        return verdict.signature === together.signature ? 'fail' : 'unresolved';
+        return reproduces(together, verdict) ? 'fail' : 'unresolved';
       },
       { maxTests: maxChecksPerSearch },
     );

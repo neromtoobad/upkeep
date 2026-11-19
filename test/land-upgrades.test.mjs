@@ -33,11 +33,18 @@ function world({ breaks = {}, fixable = [], unavailableAfter = Infinity } = {}) 
       const failure = failureIn(units);
       log.push(['check', ids(units).join(','), failure ? 'fail' : 'pass']);
       return failure
-        ? { outcome: 'fail', stage: failure.stage, signature: `${failure.stage}:${failure.key}`, summary: `${failure.key} broke ${failure.stage}` }
+        ? {
+            outcome: 'fail',
+            stage: failure.stage,
+            cause: failure.key,
+            // In the browser a failure names the flows that failed, as Kane CLI does.
+            ...(failure.stage === 'kane' ? { failing: [`${failure.key}_test.md`] } : {}),
+            summary: `${failure.key} broke ${failure.stage}`,
+          }
         : { outcome: 'pass' };
     },
     fix: async (units, verdict) => {
-      const key = verdict.signature.split(':')[1];
+      const key = verdict.cause;
       log.push(['fix', ids(units).join(',')]);
       if (!fixable.includes(key)) return { fixed: false, rounds: 3, verdict, reason: 'still failing after 3 rounds' };
       repaired.add(key);
@@ -125,8 +132,8 @@ test('a subset that fails a different way is not blamed for the first failure', 
   const check = async (units) => {
     const present = new Set(ids(units));
     calls.push(ids(units).join(','));
-    if (present.has('a') !== present.has('b')) return { outcome: 'fail', stage: 'install', signature: 'install:peer' };
-    if (present.has('d')) return { outcome: 'fail', stage: 'kane', signature: 'kane:checkout' };
+    if (present.has('a') !== present.has('b')) return { outcome: 'fail', stage: 'install' };
+    if (present.has('d')) return { outcome: 'fail', stage: 'kane', failing: ['checkout_test.md'] };
     return { outcome: 'pass' };
   };
   const fixed = [];
@@ -141,6 +148,31 @@ test('a subset that fails a different way is not blamed for the first failure', 
   });
   assert.deepEqual(fixed, ['d']);
   assert.deepEqual(result.landed.map((entry) => ids(entry.units).join(',')), ['a,b,c']);
+});
+
+test('two packages that break two different flows are separated, not handed over as a pair', async () => {
+  const fixed = [];
+  const check = async (units) => {
+    const present = new Set(ids(units));
+    const failing = [];
+    if (present.has('b')) failing.push('cart_test.md');
+    if (present.has('e')) failing.push('checkout_test.md');
+    return failing.length > 0 ? { outcome: 'fail', stage: 'kane', failing } : { outcome: 'pass' };
+  };
+  const result = await landUpgrades({
+    units: unitsNamed('a', 'b', 'c', 'd', 'e', 'f'),
+    check,
+    fix: async (units, verdict) => {
+      fixed.push([ids(units).join(','), verdict.failing.join(',')]);
+      return { fixed: false };
+    },
+    land: async () => {},
+  });
+  assert.deepEqual(fixed, [
+    ['b', 'cart_test.md'],
+    ['e', 'checkout_test.md'],
+  ]);
+  assert.deepEqual(result.landed.map((entry) => ids(entry.units).join(',')), ['a,c,d,f']);
 });
 
 test('a check that cannot run stops everything instead of blaming an upgrade', async () => {
@@ -173,7 +205,7 @@ test('reports progress as events', async () => {
   );
   const culprit = events.find((event) => event.type === 'culprit');
   assert.deepEqual(culprit.units, ['b']);
-  assert.equal(culprit.verdict.signature, 'kane:b');
+  assert.equal(culprit.verdict.cause, 'b');
   assert.equal(culprit.separated, true);
 });
 
