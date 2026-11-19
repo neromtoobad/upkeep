@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { exportRun, scrub, flowScreenshot } from '../src/report/export-run.mjs';
+import { exportRun, scrub } from '../src/report/export-run.mjs';
+import { flowScreenshot } from '../src/kane/read-evidence.mjs';
 import { listZip } from '../src/kane/zip.mjs';
 import { makeZip } from './stubs/make-zip.mjs';
 

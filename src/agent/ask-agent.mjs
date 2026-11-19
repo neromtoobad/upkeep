@@ -6,22 +6,30 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { stopGroup, tailBuffer } from '../check/run-command.mjs';
+import { stopGroup, tailBuffer, track } from '../check/run-command.mjs';
 
 /**
  * Known agents. Each gets the task on stdin.
  *
- * Claude Code is given file tools only (read, edit, search) and no shell, so
- * it cannot run the browser or reinstall packages: the only path to green is
- * fixing the app. Codex CLI runs in its own workspace-write sandbox, which
- * lets it edit the worktree and nothing outside it. Either way the guard in
- * guard-patch.mjs checks what was changed afterwards.
+ * Claude Code is started with --restricted and --tools naming the five file
+ * tools. --tools sets which tools exist at all (unlike --allowedTools, which
+ * only pre-approves), and --restricted removes the command-running tools,
+ * ignores the user's and the project's own settings, and confines the file
+ * tools to the worktree. So it cannot run the browser, reinstall packages or
+ * commit: the only path to green is editing the app. Asked to run a shell
+ * command in this mode, it answers that it has no tool to do so.
+ *
+ * Codex CLI runs in its own workspace-write sandbox, which lets it edit the
+ * worktree and nothing outside it. Either way the guard in guard-patch.mjs
+ * checks what was changed afterwards.
  */
 export const AGENTS = {
   claude: {
     name: 'Claude Code',
     command: 'claude',
-    args: ['-p', '--permission-mode', 'acceptEdits', '--allowedTools', 'Read,Edit,Write,Glob,Grep', '--output-format', 'json', '--no-session-persistence'],
+    args: ['-p', '--restricted', '--tools', 'Read,Edit,Write,Glob,Grep', '--strict-mcp-config', '--permission-mode', 'acceptEdits', '--output-format', 'json', '--no-session-persistence'],
+    // Folders besides the worktree the agent may read (Kane's screenshots live in one).
+    readable: (dirs) => dirs.flatMap((dir) => ['--add-dir', dir]),
     reply: (stdout) => {
       try {
         const parsed = JSON.parse(stdout);
@@ -55,14 +63,15 @@ export function resolveAgent(spec) {
  * @param {ReturnType<typeof resolveAgent>} input.agent
  * @param {string} input.prompt
  * @param {string} input.cwd
+ * @param {string[]} [input.readable] folders outside cwd the agent may read
  * @param {number} [input.timeoutMs]
  * @returns {Promise<{ok: boolean, text: string, costUsd?: number, seconds: number, problem?: string}>}
  */
-export async function askAgent({ agent, prompt, cwd, timeoutMs = 20 * 60_000 }) {
+export async function askAgent({ agent, prompt, cwd, readable = [], timeoutMs = 20 * 60_000 }) {
   const started = Date.now();
   let scratch;
   let command = agent.command;
-  let args = agent.args ?? [];
+  let args = [...(agent.args ?? []), ...(agent.readable && readable.length > 0 ? agent.readable(readable) : [])];
   let shell = false;
   let sendOnStdin = true;
 
@@ -83,7 +92,7 @@ export async function askAgent({ agent, prompt, cwd, timeoutMs = 20 * 60_000 }) 
     return await new Promise((resolve) => {
       let stdout = '';
       const stderr = tailBuffer(4000);
-      const child = spawn(command, args, { cwd, shell, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = track(spawn(command, args, { cwd, shell, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] }));
       child.stdout.on('data', (chunk) => (stdout += chunk));
       child.stderr.on('data', (chunk) => stderr.push(chunk.toString()));
       child.stdin.on('error', () => {}); // an agent that exits early closes its stdin

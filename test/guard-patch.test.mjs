@@ -101,6 +101,48 @@ test('downgrading the package or adding an override is undone; the real fix besi
   }
 });
 
+test('keeping the old version under an alias, or rewriting the build script, is undone', async () => {
+  const { dir, write, guard, cleanup } = await shop();
+  try {
+    const sneaky = {
+      ...PKG,
+      scripts: { build: 'echo skipped' },
+      dependencies: { ...PKG.dependencies, 'date-fns-v1': 'npm:date-fns@1.30.1', 'old-dates': 'github:date-fns/date-fns#v1.30.1' },
+    };
+    await write('package.json', `${JSON.stringify(sneaky, null, 2)}\n`);
+    const patch = await inspectPatch({ projectDir: dir, guard });
+    assert.deepEqual(patch.undone, [
+      'edited scripts in package.json',
+      'added date-fns-v1 as "npm:date-fns@1.30.1" (only plain versions may be added, not aliases, URLs or files) in package.json',
+      'added old-dates as "github:date-fns/date-fns#v1.30.1" (only plain versions may be added, not aliases, URLs or files) in package.json',
+    ]);
+    assert.deepEqual(patch.addedPackages, []);
+    assert.deepEqual(JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')), PKG);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('a round in which nothing changed is seen as such, even with edits left from an earlier round', async () => {
+  const { dir, write, cleanup } = await shop();
+  try {
+    // Round 1 edits a file and is not committed (the check failed).
+    await write('src/Order.jsx', '// first try\n');
+    await write('src/notes.txt', 'left over\n');
+    // Round 2 starts from there and the agent does nothing.
+    const backupDir = await mkdtemp(join(tmpdir(), 'upkeep-guard-backup2-'));
+    const second = await protect({ projectDir: dir, flows: ['flows/checkout_test.md'], backupDir });
+    assert.deepEqual((await inspectPatch({ projectDir: dir, guard: second })).changed, []);
+    // Round 3: one more edit, and a file removed.
+    await write('src/Order.jsx', '// second try\n');
+    await rm(join(dir, 'src/notes.txt'));
+    assert.deepEqual((await inspectPatch({ projectDir: dir, guard: second })).changed, ['src/Order.jsx', 'src/notes.txt']);
+    await rm(backupDir, { recursive: true, force: true });
+  } finally {
+    await cleanup();
+  }
+});
+
 test('adding a new package is allowed and reported', async () => {
   const { dir, write, guard, cleanup } = await shop();
   try {

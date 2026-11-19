@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readSuiteStream, judgeSuite } from './read-suite-stream.mjs';
-import { stopGroup, tailBuffer } from '../check/run-command.mjs';
+import { stopGroup, tailBuffer, track } from '../check/run-command.mjs';
 
 const exec = promisify(execFile);
 
@@ -48,7 +48,7 @@ function launch(flows, { cwd, parallel, heal, timeoutMs }) {
     let stdout = '';
     const stderr = tailBuffer();
     // stdin is closed: with a terminal attached Kane CLI opens its interactive view and never exits.
-    const child = spawn(kaneBin(), args, { cwd, env: kaneEnv(), stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+    const child = track(spawn(kaneBin(), args, { cwd, env: kaneEnv(), stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' }));
     child.stdout.on('data', (chunk) => (stdout += chunk));
     child.stderr.on('data', (chunk) => stderr.push(chunk.toString()));
 

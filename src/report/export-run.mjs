@@ -9,7 +9,8 @@
 import { mkdir, readFile, readdir, writeFile, access } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { listZip, readZipEntry } from '../kane/zip.mjs';
+import { listZip } from '../kane/zip.mjs';
+import { flowScreenshot } from '../kane/read-evidence.mjs';
 import { renderHtml } from './write-html.mjs';
 
 const exists = (path) => access(path).then(() => true, () => false);
@@ -20,26 +21,6 @@ export function scrub(text, home = homedir()) {
     .replaceAll(home, '~')
     .replace(/\/(?:Users|home)\/[^/\s"']+/g, '~')
     .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g, (match) => (match.endsWith('@example.com') || /@(\d|v\d)/.test(match) ? match : '<email>'));
-}
-
-/**
- * The screenshot that shows how a flow ended in a pack: the last step of its
- * final attempt. For a failed flow that is the state Kane gave up on (the
- * step holding Kane's failure record is often the click before it, taken while
- * the page still looked fine).
- * @returns {{bytes: Buffer, failed: boolean} | null}
- */
-export function flowScreenshot(zip, entries, stem) {
-  const prefix = `tests/${stem}-`;
-  const shots = entries.filter((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/screenshot\.(jpg|png)$/.test(e.name));
-  if (shots.length === 0) return null;
-  const failed = entries.some((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/failure\.yaml$/.test(e.name));
-  const ordinal = (e) => Number(/\/steps\/(\d+)-/.exec(e.name)[1]);
-  // A pack can hold more than one attempt of a flow; the top-level one is the final attempt.
-  const depth = (e) => e.name.split('/').length;
-  const shallowest = Math.min(...shots.map(depth));
-  const last = shots.filter((e) => depth(e) === shallowest).sort((a, b) => ordinal(b) - ordinal(a))[0];
-  return { bytes: readZipEntry(zip, last), failed };
 }
 
 /**

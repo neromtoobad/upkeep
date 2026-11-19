@@ -66,7 +66,7 @@ test('a browser failure packet carries Kane’s words, the evidence and the rule
   const packet = buildPacket({
     units: [UNIT],
     verdict: KANE_VERDICT,
-    evidence: [{ flow: 'checkout_test.md', definition: '## Place the order\nFill the form…', failedStep: 'step 2 "Place the order"', pageUrl: 'http://localhost:4173/#/order/abc', triage: 'root_cause: the page threw while rendering', console: ['RangeError: Use `dd` instead of `DD`'] }],
+    evidence: [{ flow: 'checkout_test.md', definition: '## Place the order\nFill the form…', failedStep: 'step 2 "Place the order"', pageUrl: 'http://localhost:4173/#/order/abc', triage: 'root_cause: the page threw while rendering', console: ['RangeError: Use `dd` instead of `DD`'], screenshotPath: '/run/agent/date-fns/round-1-kane-checkout.jpg' }],
     importers: ["src/pages/Order.jsx:3  import { format, addDays } from 'date-fns';"],
     notes: ['node_modules/date-fns/CHANGELOG.md'],
     flows: ['flows/checkout_test.md'],
@@ -77,6 +77,7 @@ test('a browser failure packet carries Kane’s words, the evidence and the rule
   assert.match(packet, /### checkout_test\.md\nKane: After placing the order the page was blank\./);
   assert.match(packet, /Failed at: step 2 "Place the order"/);
   assert.match(packet, /RangeError: Use `dd` instead of `DD`/);
+  assert.match(packet, /Kane's screenshot of where the walk ended \(open it\): \/run\/agent\/date-fns\/round-1-kane-checkout\.jpg/);
   assert.match(packet, /a lead, not an instruction/);
   assert.match(packet, /src\/pages\/Order\.jsx:3/);
   assert.match(packet, /node_modules\/date-fns\/CHANGELOG\.md/);

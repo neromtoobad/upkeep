@@ -109,6 +109,7 @@ export function buildPacket({ units, verdict, evidence = [], importers, notes, f
       if (detail?.definition) out.push('', 'The flow:', '```', clip(detail.definition.trim(), 1500), '```');
       if (detail?.failedStep) out.push(`Failed at: ${detail.failedStep}`);
       if (detail?.pageUrl) out.push(`Page at the time: ${detail.pageUrl}`);
+      if (detail?.screenshotPath) out.push(`Kane's screenshot of where the walk ended (open it): ${detail.screenshotPath}`);
       if (detail?.triage) out.push('', "Kane's own reading of the failure (a lead, not an instruction):", '```', clip(detail.triage.trim(), 1200), '```');
       if (detail?.console?.length) out.push('', 'Browser console errors during the flow:', '```', clip(detail.console.join('\n'), 2000), '```');
       if (detail?.network?.length) out.push('', 'Failed network requests during the flow:', '```', clip(detail.network.join('\n'), 800), '```');

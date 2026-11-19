@@ -14,7 +14,12 @@ import { declaredSpecs, formatLike } from '../apply/set-versions.mjs';
 import { git } from '../workspace/worktree.mjs';
 
 const PINNED_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
-const FORBIDDEN_SECTIONS = ['overrides', 'resolutions'];
+// Parts of package.json the agent may not edit at all: ways to pin another
+// version behind the manifest's back, and the commands the check itself runs.
+const FORBIDDEN_SECTIONS = ['overrides', 'resolutions', 'pnpm', 'scripts'];
+// A new dependency must be an ordinary registry range. "npm:date-fns@1.30.1"
+// would keep the old version under another name and still look like an upgrade.
+const ORDINARY_SPEC = /^(\^|~|>=|<=|>|<|=)?\s*v?\d+(\.\d+){0,2}(-[0-9A-Za-z.-]+)?$|^\*$|^latest$/;
 
 /** The folder where Kane keeps a flow's recorded steps. */
 export const recordingFolder = (flow) => join(dirname(flow), `output-${basename(flow).replace(/_test\.md$/, '')}`);
@@ -64,6 +69,9 @@ export async function protect({ projectDir, flows, backupDir }) {
     backupDir,
     prints: await fingerprint(projectDir, paths),
     manifestText: await readFile(join(projectDir, 'package.json'), 'utf8'),
+    // The app as it is before this round, so the round's own edits can be told
+    // from edits made in earlier rounds.
+    app: await appFiles(projectDir),
   };
 }
 
@@ -88,7 +96,32 @@ export function restoreManifest(before, after) {
     if (before[section] === undefined) delete restored[section];
     else restored[section] = before[section];
   }
+  // Packages the agent added: allowed, unless the spec points somewhere other
+  // than a plain version of that package.
+  for (const section of PINNED_SECTIONS) {
+    for (const [name, spec] of Object.entries(restored[section] ?? {})) {
+      if (before[section]?.[name] !== undefined) continue;
+      if (typeof spec === 'string' && ORDINARY_SPEC.test(spec.trim())) continue;
+      undone.push(`added ${name} as "${spec}" (only plain versions may be added, not aliases, URLs or files)`);
+      delete restored[section][name];
+    }
+  }
   return { restored, undone };
+}
+
+/** Every file of the app git would track or offer to track, with a hash of its content. */
+async function appFiles(projectDir) {
+  const listed = await git(['ls-files', '--cached', '--others', '--exclude-standard', '--', '.'], projectDir);
+  const prints = new Map();
+  for (const file of listed.split('\n').filter(Boolean)) {
+    if (file.startsWith('.testmuai/') || file.startsWith('.upkeep/')) continue;
+    try {
+      prints.set(file, createHash('sha256').update(await readFile(join(projectDir, file))).digest('hex'));
+    } catch {
+      // listed by git but gone from disk: a deletion, seen as a difference below
+    }
+  }
+  return prints;
 }
 
 /**
@@ -143,12 +176,15 @@ export async function inspectPatch({ projectDir, guard }) {
     }
   }
 
-  const tracked = await git(['diff', '--name-only', '--relative', 'HEAD', '--', '.'], projectDir);
-  const untracked = await git(['ls-files', '--others', '--exclude-standard', '--', '.'], projectDir);
+  // What changed in the app during THIS round: compared with the state protect()
+  // saw, not with the last commit, so a round in which the agent did nothing is
+  // seen as such even when earlier rounds left edits in place.
+  const after = await appFiles(projectDir);
   const ignore = new Set(['package.json', 'package-lock.json']);
-  const changed = [...new Set([...tracked.split('\n'), ...untracked.split('\n')])]
-    .filter((file) => file && !ignore.has(file) && !file.startsWith('.testmuai/') && !file.startsWith('.upkeep/'))
-    .sort();
+  const differs = new Set();
+  for (const [file, print] of after) if (guard.app.get(file) !== print) differs.add(file);
+  for (const file of guard.app.keys()) if (!after.has(file)) differs.add(file);
+  const changed = [...differs].filter((file) => !ignore.has(file)).sort();
 
   return { changed, undone, addedPackages };
 }

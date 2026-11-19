@@ -3,7 +3,7 @@
 
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { stopGroup, tailBuffer } from './run-command.mjs';
+import { stopGroup, tailBuffer, track } from './run-command.mjs';
 
 /** True when anything answers at the URL, whatever the status. */
 export async function answers(url, timeoutMs = 1500) {
@@ -33,13 +33,15 @@ export async function serveApp(command, { cwd, url, env, readyTimeoutMs = 90_000
   if (await answers(url)) throw new AddressInUse(url);
 
   const tail = tailBuffer();
-  const child = spawn(command, {
-    cwd,
-    shell: true,
-    detached: process.platform !== 'win32',
-    env: { ...process.env, BROWSER: 'none', ...env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const child = track(
+    spawn(command, {
+      cwd,
+      shell: true,
+      detached: process.platform !== 'win32',
+      env: { ...process.env, BROWSER: 'none', ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  );
   child.stdout.on('data', (chunk) => tail.push(chunk.toString()));
   child.stderr.on('data', (chunk) => tail.push(chunk.toString()));
 

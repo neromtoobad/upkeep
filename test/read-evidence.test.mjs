@@ -110,6 +110,7 @@ test('readFailure gathers everything about the failed flow from the pack', async
     'tests/checkout-ae9bd187/steps/15-1-7/failure.yaml': FAILURE,
     'tests/checkout-ae9bd187/steps/15-1-7/screenshot.jpg': 'jpeg-bytes',
     'tests/checkout-ae9bd187/steps/16-1-8/step.json': JSON.stringify({ kind: 'assert', status: 'failed', summary: 'wait: Waiting after failed order confirmation rendering' }),
+    'tests/checkout-ae9bd187/steps/16-1-8/screenshot.jpg': 'where the walk ended',
     'tests/checkout-ae9bd187/logs/1-console.ndjson': `${JSON.stringify({ level: 'error', text: 'RangeError: Use `dd` instead of `DD`' })}\n`,
     'tests/checkout-ae9bd187/logs/1-network.har': JSON.stringify({ log: { entries: [] } }),
   });
@@ -123,7 +124,7 @@ test('readFailure gathers everything about the failed flow from the pack', async
     assert.match(failure.triage, /suggested_fix:/);
     assert.deepEqual(failure.console, ['RangeError: Use `dd` instead of `DD`']);
     assert.deepEqual(failure.network, []);
-    assert.deepEqual([failure.screenshot.name, failure.screenshot.bytes.toString()], ['screenshot.jpg', 'jpeg-bytes']);
+    assert.deepEqual([failure.screenshot.name, failure.screenshot.bytes.toString()], ['screenshot.jpg', 'where the walk ended'], 'the last step, not the click before it went wrong');
   } finally {
     await cleanup();
   }

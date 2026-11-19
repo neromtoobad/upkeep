@@ -47,6 +47,11 @@ export function makeFixer({ agent, maxRounds = 3, readFailure, ask = askAgent })
           for (const pack of verdict.packs ?? []) {
             const detail = await readFailure(pack, flow).catch(() => null);
             if (detail) {
+              // Kane's screenshot of where the walk ended, as a file the agent can open.
+              if (detail.screenshot) {
+                detail.screenshotPath = join(taskDir, `round-${round}-kane-${flow.flow.replace(/[^a-z0-9._-]+/gi, '_').replace(/_test\.md$/, '')}.jpg`);
+                await writeFile(detail.screenshotPath, detail.screenshot.bytes);
+              }
               evidence.push(detail);
               break;
             }
@@ -68,7 +73,7 @@ export function makeFixer({ agent, maxRounds = 3, readFailure, ask = askAgent })
 
       const guard = await protect({ projectDir: work.projectDir, flows: config.flows, backupDir: join(taskDir, 'protected') });
       say(`      round ${round}: asking ${agent.name} to make the app work on ${label}`);
-      const answer = await ask({ agent, prompt, cwd: work.projectDir });
+      const answer = await ask({ agent, prompt, cwd: work.projectDir, readable: [taskDir] });
       await writeFile(join(taskDir, `round-${round}-reply.md`), `${answer.text || '(no reply)'}\n`);
 
       if (!answer.ok && !answer.text) {

@@ -169,11 +169,14 @@ test('askAgent runs a command of your own, with the task on stdin or in a file',
   }
 });
 
-test('resolveAgent knows Claude Code (file tools only, no shell) and Codex (sandboxed)', () => {
+test('the Claude Code preset removes the shell: --restricted, and --tools naming only file tools', () => {
   const claude = resolveAgent('claude');
   assert.equal(claude.name, 'Claude Code');
   assert.ok(claude.args.includes('-p'));
-  assert.equal(claude.args[claude.args.indexOf('--allowedTools') + 1], 'Read,Edit,Write,Glob,Grep');
+  assert.ok(claude.args.includes('--restricted'), 'ignores user and project settings, removes command-running tools');
+  assert.equal(claude.args[claude.args.indexOf('--tools') + 1], 'Read,Edit,Write,Glob,Grep', '--tools sets which tools exist');
+  assert.ok(!claude.args.includes('--allowedTools'), '--allowedTools only pre-approves; it does not remove anything');
+  assert.deepEqual(claude.readable(['/run/agent/date-fns']), ['--add-dir', '/run/agent/date-fns']);
   assert.deepEqual(claude.reply(JSON.stringify({ result: ' Fixed. ', total_cost_usd: 0.12 })), { text: 'Fixed.', costUsd: 0.12 });
   assert.equal(resolveAgent('codex').name, 'Codex CLI');
   assert.deepEqual(resolveAgent('codex').args, ['exec', '--sandbox', 'workspace-write', '-']);

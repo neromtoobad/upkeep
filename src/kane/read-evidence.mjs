@@ -79,6 +79,26 @@ export function failedRequests(harText, limit = 8) {
 }
 
 /**
+ * The screenshot that shows how a flow ended in a pack: the last step of its
+ * final attempt. For a failed flow that is the state Kane gave up on (the
+ * step holding Kane's failure record is often the click before it, taken while
+ * the page still looked fine).
+ * @returns {{bytes: Buffer, failed: boolean} | null}
+ */
+export function flowScreenshot(zip, entries, stem) {
+  const prefix = `tests/${stem}-`;
+  const shots = entries.filter((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/screenshot\.(jpg|png)$/.test(e.name));
+  if (shots.length === 0) return null;
+  const failed = entries.some((e) => e.name.startsWith(prefix) && /\/steps\/\d+-[^/]+\/failure\.yaml$/.test(e.name));
+  const ordinal = (e) => Number(/\/steps\/(\d+)-/.exec(e.name)[1]);
+  // A pack can hold more than one attempt of a flow; the top-level one is the final attempt.
+  const depth = (e) => e.name.split('/').length;
+  const shallowest = Math.min(...shots.map(depth));
+  const last = shots.filter((e) => depth(e) === shallowest).sort((a, b) => ordinal(b) - ordinal(a))[0];
+  return { bytes: readZipEntry(zip, last), failed };
+}
+
+/**
  * @param {string} packPath a sealed .evidence file
  * @param {{flow: string}} flow the failed flow, as in the suite result
  * @returns {Promise<null | {flow: string, definition?: string, failedStep?: string, pageUrl?: string,
@@ -126,9 +146,10 @@ export async function readFailure(packPath, flow) {
     out.pageUrl = (triage ? /^\s+url:\s*(\S+)\s*$/m.exec(triage)?.[1] : null) ?? step?.url;
     if (!out.pageUrl) delete out.pageUrl;
     if (triage) out.triage = triage;
-    const shot = entries.find((e) => e.name === `${stepFolder}/screenshot.jpg` || e.name === `${stepFolder}/screenshot.png`);
-    if (shot) out.screenshot = { name: shot.name.split('/').pop(), bytes: readZipEntry(zip, shot) };
   }
+  // Where the walk ended, which for a failed flow is what the person would see.
+  const shot = flowScreenshot(zip, entries, stemOf(flow.flow));
+  if (shot) out.screenshot = { name: 'screenshot.jpg', bytes: shot.bytes };
 
   for (const entry of entries) {
     if (!entry.name.startsWith(`${folder}/logs/`)) continue;
