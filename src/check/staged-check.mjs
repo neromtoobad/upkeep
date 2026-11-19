@@ -32,7 +32,13 @@ export function npmReason(output) {
 /** The first line of a build failure that names an error. */
 export function buildReason(output) {
   const lines = output.split('\n').map((line) => line.trim()).filter(Boolean);
-  return lines.find((line) => /error|is not exported|cannot find|could not resolve|failed to/i.test(line)) ?? lines.at(-1) ?? 'the build failed';
+  const telling = /error|is not exported|cannot find|could not resolve|failed to/i;
+  // "error during build:" announces the error; the line after it is the error.
+  const announcement = /^(error during build|build failed|error):?$/i;
+  const index = lines.findIndex((line) => telling.test(line));
+  if (index === -1) return lines.at(-1) ?? 'the build failed';
+  if (announcement.test(lines[index]) && lines[index + 1]) return lines[index + 1].replace(/^(RollupError|Error):\s*/, '');
+  return lines[index];
 }
 
 /**

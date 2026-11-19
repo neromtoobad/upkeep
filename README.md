@@ -128,7 +128,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Plans upgrades from `npm outdated`, keeps each range style, labels a jump breaking by the caret rule | `src/plan/outdated.mjs:40` | `test/outdated.test.mjs` |
 | Moves upgrades that need each other as one unit, from the peer ranges of installed and target versions | `src/plan/peer-links.mjs:28` | `test/peer-links.test.mjs`; `upkeep plan` prints each reason |
 | Finds the smallest set of upgrades that breaks the app by delta debugging, including pairs that only break together | `src/isolate/ddmin.mjs:20` | `test/ddmin.test.mjs` |
-| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:51` | `test/staged-check.test.mjs` |
+| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:57` | `test/staged-check.test.mjs` |
 | Runs the flows with `kane-cli testrun run --agent --headless` | `src/kane/run-suite.mjs:45` | `test/run-suite.test.mjs`; every check in `evidence/*/ledger.ndjson` |
 | A flow Kane could not run (runner crash, no browser) is never read as a broken app, even though Kane exits 1 for both | `src/kane/read-suite-stream.mjs:122` | `test/read-suite-stream.test.mjs`, against a real capture of a runner crash |
 | The search uses quick checks (no heal); nothing is blamed, handed to the agent or held back without a full check | `src/loop/land-upgrades.mjs:108` | `test/land-upgrades.test.mjs`; `node tools/check-claims.mjs` checks it in the published ledgers |

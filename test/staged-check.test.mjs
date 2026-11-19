@@ -103,7 +103,7 @@ test('a build error fails at build and costs no Kane credits', async () => {
   const verdict = await stagedCheck({ cwd: '/app', config: CONFIG, stages: s });
   assert.equal(verdict.outcome, 'fail');
   assert.equal(verdict.stage, 'build');
-  assert.match(verdict.summary, /build failed: error during build:/);
+  assert.equal(verdict.summary, 'build failed: "default" is not exported by "node_modules/nanoid/index.browser.js", imported by "src/orders.js".');
   assert.match(verdict.detail, /"default" is not exported by/);
   assert.ok(!s.reached.includes('kane'));
   assert.equal(verdict.credits, undefined);
@@ -150,4 +150,7 @@ test('npmReason and buildReason pull out the line that matters', () => {
   assert.equal(npmReason('npm error code ETARGET\nnpm error notarget No matching version found for left-pad@9.9.9.'), 'code ETARGET · notarget No matching version found for left-pad@9.9.9.');
   assert.equal(npmReason(''), 'npm install failed');
   assert.equal(buildReason('transforming...\n✓ 12 modules\nsrc/App.jsx:3:9: ERROR: No matching export in "x" for import "Switch"\n'), 'src/App.jsx:3:9: ERROR: No matching export in "x" for import "Switch"');
+  // As Vite 4 printed it on the real run: the announcement, then the error.
+  assert.equal(buildReason('vite v4.0.0 building for production...\nerror during build:\n[vite]: Rollup failed to resolve import "#minpath" from "node_modules/vfile/lib/index.js".'), '[vite]: Rollup failed to resolve import "#minpath" from "node_modules/vfile/lib/index.js".');
+  assert.equal(buildReason(''), 'the build failed');
 });
