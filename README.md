@@ -149,7 +149,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
 | Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:96` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
-| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:140` | `test/upgrade-run.test.mjs` |
+| `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:167` | `test/upgrade-run.test.mjs` |
 <!-- claims:end -->
 
 ## What is real, and what is a stand-in

@@ -63,3 +63,12 @@ handles it is named.
    `project_id` and the test case id, so committed recordings only replay for that account.
    The demo shop ignores them for that reason; Upkeep copies untracked recordings into its
    worktree (`src/run/upgrade-run.mjs`).
+
+10. **A failed heal leaves the recordings changed.** After a full check that failed (Kane tried
+    to heal and gave up), the next passing check on the same flows cost far more than a replay:
+    about 91 credits for three flows after the `js-cookie` fix, against 7 to 8 for a normal
+    replay. It looks like the heal attempts rewrite `output-<name>/` even when the flow ends
+    failed. A tool that calls Kane in a loop then pays to author the flows again after every
+    failure. Upkeep now copies the recordings before each check and puts them back after any
+    check that does not pass (`keepRecordings` in `src/run/upgrade-run.mjs`). An option to leave
+    recordings untouched unless the run passes would remove the need.

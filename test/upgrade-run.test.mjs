@@ -256,6 +256,38 @@ test('a pass where Kane healed a step is recorded and said', async () => {
   }
 });
 
+test('recordings only move forward on a pass: a failing check cannot leave them rewritten', async () => {
+  const { dir, cleanup } = await shop();
+  const w = world({ candidates: [AXIOS, COOKIE] });
+  const seenByCheck = [];
+  const parts = {
+    ...w.parts,
+    // Like Kane CLI: every check rewrites the recording (a heal attempt), pass or fail.
+    stagedCheck: async (input) => {
+      const file = join(input.cwd, 'flows/output-checkout/steps.json');
+      seenByCheck.push(await readFile(file, 'utf8'));
+      const verdict = await w.parts.stagedCheck(input);
+      await writeFile(file, `rewritten during a check that ended in ${verdict.outcome}\n`);
+      return verdict;
+    },
+  };
+  try {
+    await writeFile(join(dir, '.git/info/exclude'), 'flows/output-*/\n');
+    await mkdir(join(dir, 'flows/output-checkout'), { recursive: true });
+    await writeFile(join(dir, 'flows/output-checkout/steps.json'), 'recorded on the working app\n');
+    await upgradeRun({ projectDir: dir, say: quiet, parts });
+    // baseline (pass), axios (pass), js-cookie quick (fail), js-cookie full (fail)
+    assert.deepEqual(seenByCheck, [
+      'recorded on the working app\n',
+      'rewritten during a check that ended in pass\n',
+      'rewritten during a check that ended in pass\n',
+      'rewritten during a check that ended in pass\n',
+    ], 'after a failing check the next one starts from the last passing recording');
+  } finally {
+    await cleanup();
+  }
+});
+
 test('nothing behind: says so and makes no branch', async () => {
   const { dir, cleanup } = await shop();
   try {

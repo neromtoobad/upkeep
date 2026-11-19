@@ -1,7 +1,7 @@
 // `upkeep run`: plan the upgrades, open a worktree, prove the app works today,
 // then land upgrades through the loop and leave a branch and a report.
 
-import { cp, mkdir, readFile, writeFile, appendFile, access, copyFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, appendFile, access, copyFile, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { makePlan } from '../plan/make-plan.mjs';
 import { resolveConfig } from '../config/resolve-config.mjs';
@@ -48,6 +48,33 @@ async function seedRecordings(from, to, flows) {
     copied += 1;
   }
   return copied;
+}
+
+const recordingsOf = (flows) => flows.map((flow) => join(dirname(flow), `output-${basename(flow).replace(/_test\.md$/, '')}`));
+
+/**
+ * Recordings only move forward on a pass. When a check fails, Kane's heal
+ * attempts can leave the recorded steps rewritten against the broken app; the
+ * next check would then replay those, or pay to write them again. So the
+ * recordings are copied before each check and put back after any check that
+ * does not pass.
+ */
+export async function keepRecordings(projectDir, flows, backupDir) {
+  await rm(backupDir, { recursive: true, force: true });
+  const kept = [];
+  for (const folder of recordingsOf(flows)) {
+    if (!(await exists(join(projectDir, folder)))) continue;
+    await cp(join(projectDir, folder), join(backupDir, folder), { recursive: true });
+    kept.push(folder);
+  }
+  return {
+    restore: async () => {
+      for (const folder of recordingsOf(flows)) {
+        await rm(join(projectDir, folder), { recursive: true, force: true });
+        if (kept.includes(folder)) await cp(join(backupDir, folder), join(projectDir, folder), { recursive: true });
+      }
+    },
+  };
 }
 
 function commitMessage(units, verdict, repair) {
@@ -147,7 +174,9 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
       await writeVersions(work.projectDir, baseText, units);
     }
     const stagesSeen = [];
+    const recordings = await keepRecordings(work.projectDir, config.flows, join(runDir, 'recordings-before-check'));
     const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
+    if (verdict.outcome !== 'pass' || verdict.partial) await recordings.restore();
     const packs = await keepPacks(verdict);
     spent += verdict.credits ?? 0;
     // Kane's policy engine on the pack: flows that verify nothing, and steps Kane healed.
@@ -197,7 +226,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const recorded = await commitAll(
       work.projectDir,
       'Record the Kane flows on the current versions\n\nSteps recorded by Kane CLI before any upgrade, so later runs replay them.',
-      config.flows.map((flow) => join(dirname(flow), `output-${basename(flow).replace(/_test\.md$/, '')}`)),
+      recordingsOf(config.flows),
     );
     if (recorded) say(`      recorded the flows: ${recorded.slice(0, 7)}`);
     say('');
