@@ -142,6 +142,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Kane's failure goes to the agent as Kane wrote it: its message, the failing step, console errors, its own root cause | `src/agent/failure-packet.mjs:87` | `evidence/2026-11-19-1500-fixed-by-agent/agent/date-fns/round-1-task.md` |
 | Reads the failing step, Kane's triage, the console and the screenshot out of the evidence pack | `src/kane/read-evidence.mjs:87` | `test/read-evidence.test.mjs` |
 | After the agent edits the app, Kane walks it again; a new failure opens the next round | `src/agent/fix-loop.mjs:90` | `test/fix-loop.test.mjs`; `evidence/2026-11-19-1500-fixed-by-agent/report.md` |
+| An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane | `src/agent/handoff.mjs:54` | `test/handoff.test.mjs` |
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:100` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
 | Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:73` | `test/resolve-config.test.mjs` |
@@ -162,6 +163,7 @@ Every claim made here, the line of code behind it, and how it is checked.
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
 | The stream reader | Tested against a real capture, including a runner crash | `test/fixtures/kane-suite-authored-one-broken.ndjson` |
 | The "flow verifies nothing" stop | Tested with a stand-in for Kane's verdict. Real packs so far all had checks, so it has **not fired on a real run** | `test/upgrade-run.test.mjs` |
+| Handoff mode (`--agent handoff`, `upkeep wait`, `upkeep continue`) | Tested through the real commands with a stand-in for the run. **Not yet used on a real run** | `test/handoff.test.mjs` |
 | The Codex CLI preset (`--agent codex`) | Written from the Codex documentation. **Not run by us**: Codex is not installed here | `src/agent/ask-agent.mjs` |
 
 ## Not built yet
@@ -204,7 +206,8 @@ stop your own dev server first.
 
 | Option | What it does |
 |---|---|
-| `--agent claude` | Have Claude Code fix upgrades that break the app. Any other agent: pass its headless command. Without `--agent`, breaking upgrades are isolated and held back |
+| `--agent claude` | Have Claude Code fix upgrades that break the app. Any other headless agent: pass its command. Without `--agent`, breaking upgrades are isolated and held back |
+| `--agent handoff` | The agent you are already talking to (Cursor, Windsurf, Kiro, Claude Code) does the fixing. The run pauses with Kane's failure; `upkeep wait` prints the task, `upkeep continue` sends the edit back to Kane |
 | `--only a,b` / `--exclude a,b` | Narrow the set |
 | `--target wanted` | Stay inside the version ranges already in `package.json` |
 | `--budget 500` | Stop starting checks after this many Kane credits |

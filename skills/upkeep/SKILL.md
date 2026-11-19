@@ -36,8 +36,12 @@ Show the user the plan: what is behind, what may break, what moves together and 
 npx upkeep-cli run --agent claude
 ```
 
-- Use the agent you are: `claude` in Claude Code, `codex` in Codex CLI. For any other agent pass
-  its headless command, for example `--agent "my-agent --task-file {prompt_file}"`.
+- `--agent claude` starts a separate headless Claude Code for each fix. `--agent codex` does the
+  same with Codex CLI. For any other headless agent pass its command, for example
+  `--agent "my-agent --task-file {prompt_file}"`.
+- `--agent handoff` makes **you** the fixer, in this session. Use it when you are an agent in an
+  editor (Cursor, Windsurf, Kiro, Copilot) or when the user wants to watch the fixes happen here.
+  See "Handoff" below.
 - A run takes minutes to an hour and spends Kane credits (about 8 per passing check, more for a
   failing one). Tell the user that before starting, and run it in the background.
 - Leave out `--agent` to only find and hold back the upgrades that break the app.
@@ -48,6 +52,28 @@ npx upkeep-cli run --agent claude
 Exit codes: `0` everything was upgraded, `3` some upgrades were held back (the branch is still
 good), `4` the check could not run (not signed in, no credits, port taken), `1` the app did not
 pass its flows before any upgrade.
+
+## Handoff: you are the fixer
+
+```bash
+npx upkeep-cli run --agent handoff     # start it in the background; it pauses when it needs you
+npx upkeep-cli wait                    # blocks until there is a task for you, or the run is over
+```
+
+`upkeep wait` exits `10` and prints a task when Kane has confirmed that an upgrade broke the app.
+The task ends with the folder to edit: a worktree, **not** the user's checkout. Edit the app
+there, following the rules in the task, then:
+
+```bash
+npx upkeep-cli continue --message "what you changed, in a sentence"
+npx upkeep-cli wait
+```
+
+Upkeep checks your edit with its guard and has Kane walk the app again. `wait` then prints either
+the next task (Kane still fails, or another upgrade broke something), or the final result with
+exit `0` or `3`. Exit `11` means it is still working: run `wait` again. Keep going until `wait`
+prints the result. Do not edit the user's checkout, and do not try to judge the fix yourself:
+Kane's next walk is the judgement.
 
 ## When Upkeep hands you a failure
 

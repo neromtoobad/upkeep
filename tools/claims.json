@@ -72,6 +72,12 @@
     "check": "`test/fix-loop.test.mjs`; `evidence/2026-11-19-1500-fixed-by-agent/report.md`"
   },
   {
+    "claim": "An agent already in a session can be the fixer: the run pauses with Kane's failure, `upkeep wait` prints it, `upkeep continue` sends the edit back to Kane",
+    "file": "src/agent/handoff.mjs",
+    "find": "export function makeHandoffAsk",
+    "check": "`test/handoff.test.mjs`"
+  },
+  {
     "claim": "An agent that edits the flows, the recordings or the versions instead of the app has that undone",
     "file": "src/agent/guard-patch.mjs",
     "find": "export async function inspectPatch",
