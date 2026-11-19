@@ -169,5 +169,7 @@ test('npmReason and buildReason pull out the line that matters', () => {
   assert.equal(buildReason('transforming...\n✓ 12 modules\nsrc/App.jsx:3:9: ERROR: No matching export in "x" for import "Switch"\n'), 'src/App.jsx:3:9: ERROR: No matching export in "x" for import "Switch"');
   // As Vite 4 printed it on the real run: the announcement, then the error.
   assert.equal(buildReason('vite v4.0.0 building for production...\nerror during build:\n[vite]: Rollup failed to resolve import "#minpath" from "node_modules/vfile/lib/index.js".'), '[vite]: Rollup failed to resolve import "#minpath" from "node_modules/vfile/lib/index.js".');
+  // As Vite 8 printed it on the real run.
+  assert.equal(buildReason('vite v8.3.8 building for production...\nBuild failed with 1 error:\n[vite]: Rollup failed to resolve import "#minpath"'), '[vite]: Rollup failed to resolve import "#minpath"');
   assert.equal(buildReason(''), 'the build failed');
 });
