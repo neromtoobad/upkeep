@@ -221,7 +221,7 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     const creditsAfter = await readCredits();
     result.credits = creditsBefore !== null && creditsAfter !== null ? Number((creditsBefore - creditsAfter).toFixed(2)) : null;
     result.seconds = Math.round((Date.now() - started) / 1000);
-    const runRecord = { project: plan.project, branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
+    const runRecord = { project: plan.project, ...(options.agentName ? { agent: options.agentName } : {}), branch: work.branch, base: work.base, flows: config.flows, url: config.url, plan: plan.candidates, skipped: plan.skipped, checks: result.checks, credits: result.credits, seconds: result.seconds, landed: result.landed.map((entry) => ({ units: entry.units.map((unit) => unit.id), fixed: entry.fixed, rounds: entry.rounds })), blocked: result.blocked.map((entry) => ({ units: entry.units.map((unit) => unit.id), reason: entry.reason, stage: entry.verdict.stage, summary: entry.verdict.summary })) };
     await writeFile(join(runDir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
     await writeFile(join(runDir, 'report.md'), renderReport(runRecord, ledger, { agentName: options.agentName }));
     if (!options.keepWorktree) await work.remove();

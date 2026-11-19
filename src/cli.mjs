@@ -9,12 +9,15 @@ import { makeFixer } from './agent/fix-loop.mjs';
 import { resolveAgent } from './agent/ask-agent.mjs';
 import { readFailure } from './kane/read-evidence.mjs';
 import { exportRun } from './report/export-run.mjs';
+import { renderReport } from './report/write-report.mjs';
+import { join } from 'node:path';
 
 const HELP = `Upkeep updates your outdated packages and proves in a real browser that the app still works.
 
 Usage
   upkeep plan [options]     Show which packages are behind and how they will be moved
   upkeep run [options]      Upgrade them on a new branch, keeping only what Kane CLI verifies
+  upkeep report <run>       Print the report of a finished run again, from its ledger
   upkeep export <run> --out <dir>
                             Copy a run (under .upkeep/runs/) without account details, to publish it
 
@@ -105,6 +108,21 @@ export async function main(argv, io = {}) {
     out(HELP);
     return 0;
   }
+  if (command === 'report') {
+    if (rest.length !== 1) throw new UsageError('report needs a run folder, for example .upkeep/runs/20261119-150004');
+    const dir = resolve(rest[0]);
+    let run;
+    let ledger;
+    try {
+      run = JSON.parse(await readFile(join(dir, 'run.json'), 'utf8'));
+      ledger = (await readFile(join(dir, 'ledger.ndjson'), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    } catch (error) {
+      throw new Error(`${dir} is not a finished Upkeep run: ${error.message}`);
+    }
+    out(renderReport(run, ledger, { agentName: run.agent }));
+    return 0;
+  }
+
   if (command === 'export') {
     if (rest.length !== 1 || !flags.out) throw new UsageError('export needs a run folder and --out <dir>');
     const { files } = await exportRun(resolve(rest[0]), resolve(flags.out));
