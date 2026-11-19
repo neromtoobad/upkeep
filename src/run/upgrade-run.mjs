@@ -12,6 +12,7 @@ import { landUpgrades, CheckUnavailable } from '../loop/land-upgrades.mjs';
 import { kaneStatus, readCredits } from '../kane/run-suite.mjs';
 import { runCommand } from '../check/run-command.mjs';
 import { renderReport } from '../report/write-report.mjs';
+import { openPullRequest, PullRequestFailed } from '../report/open-pull-request.mjs';
 
 const exists = (path) => access(path).then(() => true, () => false);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -217,6 +218,21 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
   if (blockedCount > 0) say(`  ${plural(blockedCount, 'package')} held back: ${result.blocked.map((entry) => entry.units.map((unit) => unit.id).join(' + ')).join(', ')}`);
   say(`  report: ${join(runDir, 'report.md')}`);
   say(`  Kane evidence for every check: ${join(runDir, 'evidence')}`);
-  if (landedCount > 0) say(`  to take the upgrades: git merge ${work.branch}`);
+  if (landedCount > 0 && options.pullRequest) {
+    try {
+      result.pullRequest = await openPullRequest({
+        repoRoot: work.repoRoot,
+        branch: work.branch,
+        title: `Upkeep: upgrade ${plural(landedCount, 'package')}, verified by Kane CLI`,
+        bodyFile: join(runDir, 'report.md'),
+      });
+      say(`  pull request: ${result.pullRequest}`);
+    } catch (error) {
+      if (!(error instanceof PullRequestFailed)) throw error;
+      say(`  no pull request: ${error.message}`);
+    }
+  } else if (landedCount > 0) {
+    say(`  to take the upgrades: git merge ${work.branch}`);
+  }
   return result;
 }

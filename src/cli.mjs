@@ -31,6 +31,7 @@ Options for run
                             Without it, breaking upgrades are isolated and held back.
   --rounds <n>              Most rounds between Kane and the agent per upgrade (default 3)
   --max-checks <n>          Most checks to spend isolating one failure (default 24)
+  --pr                      Push the branch and open a pull request with the report as its body
   --keep-worktree           Leave the working copy in place when the run ends
 
   -h, --help                Show this help
@@ -41,7 +42,7 @@ Options for run
 export class UsageError extends Error {}
 
 const VALUE_FLAGS = new Set(['--cwd', '--target', '--only', '--exclude', '--max-checks', '--agent', '--rounds']);
-const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree']);
+const BOOLEAN_FLAGS = new Set(['--json', '--help', '--version', '--keep-worktree', '--pr']);
 const SHORT = { '-h': '--help', '-v': '--version' };
 
 /** @param {string[]} argv arguments after the program name */
@@ -133,6 +134,7 @@ export async function main(argv, io = {}) {
           keepWorktree: Boolean(flags['keep-worktree']),
           maxChecksPerSearch: maxChecks,
           agentName: agent?.name,
+          pullRequest: Boolean(flags.pr),
         },
         say: (line) => out(`${line}\n`),
         fix,
