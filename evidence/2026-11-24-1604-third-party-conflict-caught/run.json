@@ -1,0 +1,113 @@
+{
+  "upkeep": {
+    "version": "0.1.0",
+    "commit": "d62ccd5"
+  },
+  "kane": "0.10.6",
+  "project": "js-equality-game",
+  "agent": "Claude Code",
+  "branch": "upkeep/2026-11-24-1604",
+  "base": "2aa07a5a2a6ac7a0c270a0858277997b6b61220d",
+  "flows": [
+    "flows/language_test.md",
+    "flows/open_test.md",
+    "flows/results_test.md"
+  ],
+  "url": "http://localhost:4317",
+  "plan": [
+    {
+      "name": "core-js",
+      "from": "3.16.0",
+      "to": "3.51.0",
+      "section": "dependencies",
+      "spec": "^3.16.0",
+      "nextSpec": "^3.51.0",
+      "kind": "minor",
+      "breaking": false,
+      "homepage": "https://core-js.io"
+    },
+    {
+      "name": "eslint-plugin-prettier",
+      "from": "3.1.4",
+      "to": "5.5.7",
+      "section": "devDependencies",
+      "spec": "^3.1.4",
+      "nextSpec": "^5.5.7",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/prettier/eslint-plugin-prettier#readme"
+    },
+    {
+      "name": "gh-pages",
+      "from": "3.2.3",
+      "to": "6.3.0",
+      "section": "devDependencies",
+      "spec": "^3.2.3",
+      "nextSpec": "^6.3.0",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/tschaub/gh-pages"
+    },
+    {
+      "name": "prettier",
+      "from": "1.19.1",
+      "to": "3.10.1",
+      "section": "devDependencies",
+      "spec": "^1.19.1",
+      "nextSpec": "^3.10.1",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://prettier.io"
+    },
+    {
+      "name": "react",
+      "from": "16.14.0",
+      "to": "19.3.1",
+      "section": "dependencies",
+      "spec": "^16.14.0",
+      "nextSpec": "^19.3.1",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://react.dev/"
+    },
+    {
+      "name": "react-dom",
+      "from": "16.14.0",
+      "to": "19.3.1",
+      "section": "dependencies",
+      "spec": "^16.14.0",
+      "nextSpec": "^19.3.1",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://react.dev/"
+    },
+    {
+      "name": "rimraf",
+      "from": "3.0.2",
+      "to": "6.1.4",
+      "section": "devDependencies",
+      "spec": "^3.0.2",
+      "nextSpec": "^6.1.4",
+      "kind": "major",
+      "breaking": true,
+      "homepage": "https://github.com/isaacs/rimraf#readme"
+    },
+    {
+      "name": "whatwg-fetch",
+      "from": "3.6.2",
+      "to": "3.6.20",
+      "section": "dependencies",
+      "spec": "^3.6.2",
+      "nextSpec": "^3.6.20",
+      "kind": "patch",
+      "breaking": false,
+      "homepage": "https://github.com/github/fetch#readme"
+    }
+  ],
+  "skipped": [],
+  "checks": 5,
+  "credits": 59.85,
+  "seconds": 409,
+  "landed": [],
+  "blocked": []
+}

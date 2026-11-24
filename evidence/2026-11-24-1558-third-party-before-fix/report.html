@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upkeep report: js-equality-game</title>
+<style>
+:root { --page:#faf9f6; --ink:#16150f; --soft:#6b6860; --line:rgba(22,21,15,.12); --pass:#1d6b43; --fail:#a5371f; --held:#8a6410; --step:#9a978d; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--page); color:var(--ink); font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+main { max-width:920px; margin:0 auto; padding:56px 24px 96px; }
+.label { font:11px/1.4 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--soft); }
+h1 { font-size:34px; line-height:1.1; letter-spacing:-.02em; font-weight:600; margin:10px 0 18px; }
+h2 { font-size:20px; letter-spacing:-.01em; font-weight:600; margin:64px 0 6px; }
+h3 { font-size:16px; font-weight:600; margin:0 0 2px; }
+p { margin:0 0 12px; }
+.lede { font-size:19px; line-height:1.45; max-width:34em; }
+.lede b { font-weight:600; }
+.soft { color:var(--soft); }
+code, .mono { font:13px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+.facts { display:flex; flex-wrap:wrap; gap:10px 36px; margin:28px 0 0; padding:18px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.facts div b { display:block; font-weight:500; font-size:15px; }
+.strip { display:flex; flex-wrap:wrap; gap:3px; margin:18px 0 6px; }
+.strip i { width:14px; height:26px; border-radius:2px; background:var(--step); opacity:.45; }
+.strip i.pass { background:var(--pass); opacity:1; } .strip i.fail { background:var(--fail); opacity:1; } .strip i.error { background:var(--held); opacity:1; }
+.case { border-top:1px solid var(--line); padding:26px 0 8px; }
+.case .verdict { float:right; }
+.stamp { display:inline-block; font:11px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; padding:5px 7px 4px; border:1px solid currentColor; border-radius:3px; }
+.stamp.pass { color:var(--pass); } .stamp.fail { color:var(--fail); } .stamp.held { color:var(--held); } .stamp.step { color:var(--step); }
+dl { display:grid; grid-template-columns:150px 1fr; gap:8px 20px; margin:14px 0 18px; }
+dt { color:var(--soft); } dd { margin:0; }
+blockquote { margin:0; padding-left:14px; border-left:2px solid var(--line); }
+.shots { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:6px 0 22px; }
+.shots.one { grid-template-columns:1fr; max-width:55%; }
+figure { margin:0; }
+/* Kane's screenshots are 1920 wide with the app in the middle: show the middle half at twice the size. */
+.frame { overflow:hidden; aspect-ratio:16/10; border:1px solid var(--line); border-radius:3px; background:#fff; }
+.frame img { display:block; width:200%; max-width:none; margin-left:-50%; }
+figcaption { margin-top:8px; font-size:13.5px; color:var(--soft); }
+figcaption b { color:var(--ink); font-weight:500; }
+table { width:100%; border-collapse:collapse; margin:12px 0 0; font-size:14px; }
+th { text-align:left; font:11px/1.4 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--soft); font-weight:400; padding:8px 12px 8px 0; border-bottom:1px solid var(--line); }
+td { padding:9px 12px 9px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+td.n, th.n { text-align:right; padding-right:0; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.num, th.num { width:34px; color:var(--soft); font-variant-numeric:tabular-nums; }
+td.n + td.n, th.n + th.n { padding-left:18px; }
+tr.search td { color:var(--soft); }
+footer { margin-top:72px; padding-top:18px; border-top:1px solid var(--line); font-size:13.5px; color:var(--soft); }
+@media (max-width:640px) { main { padding:32px 16px 64px; } h1 { font-size:27px; } .lede { font-size:17px; } .shots, .shots.one { grid-template-columns:1fr; max-width:none; } dl { grid-template-columns:1fr; gap:2px 0; } dd { margin-bottom:10px; } .case .verdict { float:none; display:block; margin-bottom:10px; } table { font-size:13px; } }
+</style>
+</head>
+<body>
+<main>
+<p class="label">Upkeep report</p>
+<h1>js-equality-game</h1>
+<p class="lede"><b>8 packages</b> were behind. <b>2</b> are upgraded, each one after Kane CLI walked the app in a real browser and it passed. <b>6</b> are held back.</p>
+<div class="facts">
+<div><span class="label">Branch</span><b class="mono">upkeep/2026-11-24-1558</b></div>
+<div><span class="label">Checks</span><b>14</b></div>
+<div><span class="label">Time</span><b>3 min</b></div>
+<div><span class="label">Kane credits</span><b>56.83</b></div>
+<div><span class="label">Flows walked</span><b>3 at http://localhost:4317</b></div>
+</div>
+<div class="strip" aria-hidden="true"><i class="pass" title="check 1"></i><i class="pass" title="check 2"></i><i class="fail" title="check 3"></i><i class="fail" title="check 4"></i><i class="fail" title="check 5"></i><i class="fail" title="check 6"></i><i class="fail" title="check 7"></i><i class="fail" title="check 8"></i><i class="fail" title="check 9"></i><i class="fail" title="check 10"></i><i class="fail" title="check 11"></i><i class="fail" title="check 12"></i><i class="fail" title="check 13"></i><i class="fail" title="check 14"></i></div>
+<p class="soft" style="font-size:13.5px">One mark per check, in order. Green passed, red failed, grey is a step of the search that stopped early on purpose.</p>
+<h2>Held back</h2>
+<p class="soft">Not on the branch. The app does not pass its flows with these, and no fix was verified.</p>
+<section class="case">
+<span class="verdict stamp held">held back</span>
+<h3>eslint-plugin-prettier <span class="soft">3.1.4 → 5.5.7</span>, prettier <span class="soft">1.19.1 → 3.10.1</span></h3>
+<dl>
+<dt>What broke</dt><dd>Installing the packages failed: <span class="mono">packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</span> <span class="soft mono">· check 6</span></dd>
+<dt>Why held back</dt><dd>install failed: packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</dd>
+</dl>
+</section>
+<section class="case">
+<span class="verdict stamp held">held back</span>
+<h3>gh-pages <span class="soft">3.2.3 → 6.3.0</span></h3>
+<dl>
+<dt>What broke</dt><dd>Installing the packages failed: <span class="mono">packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</span> <span class="soft mono">· check 9</span></dd>
+<dt>Why held back</dt><dd>install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</dd>
+</dl>
+</section>
+<section class="case">
+<span class="verdict stamp held">held back</span>
+<h3>react <span class="soft">16.14.0 → 19.3.1</span>, react-dom <span class="soft">16.14.0 → 19.3.1</span></h3>
+<dl>
+<dt>What broke</dt><dd>Installing the packages failed: <span class="mono">packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</span> <span class="soft mono">· check 12</span></dd>
+<dt>Why held back</dt><dd>install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</dd>
+</dl>
+</section>
+<section class="case">
+<span class="verdict stamp held">held back</span>
+<h3>rimraf <span class="soft">3.0.2 → 6.1.4</span></h3>
+<dl>
+<dt>What broke</dt><dd>Installing the packages failed: <span class="mono">packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</span> <span class="soft mono">· check 14</span></dd>
+<dt>Why held back</dt><dd>install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</dd>
+</dl>
+</section>
+<h2>Upgraded as they are</h2>
+<table><thead><tr><th>Package</th><th>From</th><th>To</th><th>Jump</th><th>Verified by</th></tr></thead><tbody>
+<tr><td class="mono">core-js</td><td class="mono">3.16.0</td><td class="mono">3.51.0</td><td>minor</td><td>Kane CLI 3/3 flows, check 2 <span class="soft mono">· 5ed8988</span></td></tr>
+<tr><td class="mono">whatwg-fetch</td><td class="mono">3.6.2</td><td class="mono">3.6.20</td><td>patch</td><td>Kane CLI 3/3 flows, check 2 <span class="soft mono">· 5ed8988</span></td></tr>
+</tbody></table>
+<h2>Every check</h2>
+<p class="soft">Each one installs, builds and boots the app, then Kane CLI walks the flows. It stops at the first stage that fails.</p>
+<table><thead><tr><th class="num">#</th><th>Applied</th><th>Result</th><th class="n">Time</th><th class="n">Credits</th></tr></thead><tbody>
+<tr><td class="num">1</td><td class="mono">nothing: the app as it is</td><td><span class="stamp pass">pass</span> 3 of 3 flows passed</td><td class="n">94 s</td><td class="n">56.83</td></tr>
+<tr><td class="num">2</td><td class="mono">core-js, whatwg-fetch <span class="soft">(quick)</span></td><td><span class="stamp pass">pass</span> 3 of 3 flows passed</td><td class="n">41 s</td><td class="n">0</td></tr>
+<tr><td class="num">3</td><td class="mono">eslint-plugin-prettier+prettier, gh-pages, react+react-dom, rimraf <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">4</td><td class="mono">eslint-plugin-prettier+prettier, gh-pages <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">5</td><td class="mono">eslint-plugin-prettier+prettier <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">6</td><td class="mono">eslint-plugin-prettier+prettier</td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint-plugin-prettier@3.1.4 · peer eslint-plugin-prettier@&quot;^3.1.0&quot; from @slikts/eslint-config-prettier@6.0.3</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">7</td><td class="mono">gh-pages, react+react-dom, rimraf <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</td><td class="n">2 s</td><td class="n">–</td></tr>
+<tr><td class="num">8</td><td class="mono">gh-pages <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">9</td><td class="mono">gh-pages</td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">10</td><td class="mono">react+react-dom, rimraf <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">11</td><td class="mono">react+react-dom <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">12</td><td class="mono">react+react-dom</td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · npm warn Could not resolve dependency:</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">13</td><td class="mono">rimraf <span class="soft">(quick)</span></td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</td><td class="n">1 s</td><td class="n">–</td></tr>
+<tr><td class="num">14</td><td class="mono">rimraf</td><td><span class="stamp fail">fail at install</span> install failed: packages disagree about a shared dependency · Found: eslint@8.28.0 · peer eslint@&quot;^7.5.0 || ^8.0.0&quot; from @babel/eslint-parser@7.19.1</td><td class="n">1 s</td><td class="n">–</td></tr>
+</tbody></table>
+<footer>Written by Upkeep from the run's ledger. Made by Upkeep 0.1.0 (commit 8801fa6) with Kane CLI 0.10.6. Screenshots are Kane CLI's own, taken from its evidence packs. A quick check replays recorded steps and stops at the first mismatch; nothing is blamed or held back without a full check, in which Kane first tries to heal the step.</footer>
+</main>
+</body>
+</html>
