@@ -8,7 +8,8 @@ Verifier: [Kane CLI](https://github.com/LambdaTest/kane-cli).
 **Proof.** A shop app pinned to packages released between 2018 and 2022 was 12 packages behind
 (React 17, Vite 4, react-hook-form 6, date-fns 1). One command, 33 minutes, no person involved:
 
-- **12 of 12 upgraded**, to React 19, Vite 8 and the rest, on a branch of six commits.
+- **12 of 12 upgraded**, to React 19, Vite 8 and the rest, on a branch of six commits, open as
+  [a pull request on the demo shop](https://github.com/neromtoobad/upkeep-demo-shop/pull/1).
 - **4 upgrades broke the app.** `nanoid` 6 failed the build. `date-fns` 4, `js-cookie` 3 and
   React 19 (with its form and markdown libraries) built fine and failed only in the browser,
   where Kane CLI found a blank page each time.
