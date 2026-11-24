@@ -29,6 +29,24 @@ commit `ec96636` with Kane CLI 0.10.6. An earlier run of the same upgrade on old
 
 Both screenshots are Kane CLI's own, taken from its evidence packs.
 
+**On someone else's app.** [slikts/js-equality-game](https://github.com/slikts/js-equality-game)
+(MIT, a Create React App quiz last changed in 2023) was 8 packages behind, React 16 among them. We
+added three flows and changed nothing else. 8 of 8 upgraded and verified in 15 minutes, 9 checks,
+164 Kane credits. React 19 left the page on "Loading…"; Kane: "The page remains on Loading after
+waits and a refresh, with no Language dropdown available." Claude Code replaced `ReactDOM.render`
+with `createRoot` in one round. The run is in [`evidence/2026-11-24-1611-third-party-all-eight/`](evidence/2026-11-24-1611-third-party-all-eight/report.md).
+
+| React 16 → 19: what Kane saw | After the agent's fix |
+|---|---|
+| ![The quiz stuck on Loading](evidence/2026-11-24-1611-third-party-all-eight/screenshots/check-07-language-failed.jpg) | ![The quiz rendered, switched to German](evidence/2026-11-24-1611-third-party-all-eight/screenshots/check-08-language-passed.jpg) |
+
+That app also found a bug in Upkeep. Its lint config pins eslint 5 while react-scripts brings
+eslint 8, and the lockfile hides the conflict until `package.json` changes. The first run blamed
+React, gh-pages and rimraf for it ([`2026-11-24-1558-third-party-before-fix`](evidence/2026-11-24-1558-third-party-before-fix/report.md)).
+Upkeep now tells a conflict an upgrade caused from one that was already there, and stops with what
+to do ([`2026-11-24-1604-third-party-conflict-caught`](evidence/2026-11-24-1604-third-party-conflict-caught/report.md),
+commit `d62ccd5`). The run above followed that advice: one line in `upkeep.config.json`.
+
 ## The problem
 
 Dependabot and Renovate open the pull request and trust your CI. But the upgrades that hurt build
@@ -97,18 +115,18 @@ With a Kane account (`kane-cli login --oauth`) and Claude Code installed, see [R
 
 | Bar (quoted from the event page) | Where |
 |---|---|
-| "It works end to end." | Real runs in [`evidence/`](evidence/), each plan → worktree → install → build → boot → Kane → commit on a branch. Two of them upgrade all 12 packages of the demo shop. |
-| "Kane CLI caught or proved something." | Caught: three upgrades that build fine and leave a blank page (`date-fns` 4, `js-cookie` 3, React 19 with its form and markdown libraries). Proved: every one of the six commits, 3 of 3 flows each. |
+| "It works end to end." | Real runs in [`evidence/`](evidence/), each plan → worktree → install → build → boot → Kane → commit on a branch. Two upgrade all 12 packages of the demo shop; one upgrades all 8 of a third-party app. |
+| "Kane CLI caught or proved something." | Caught: upgrades that build fine and leave a blank page (`date-fns` 4, `js-cookie` 3, React 19 with its form and markdown libraries) or a page stuck on "Loading…" (React 19 on the third-party app). Proved: every commit on those branches, 3 of 3 flows each. |
 | "Your agent and Kane CLI talked to each other." | Kane's failure record is the agent's task (three of the four in [`agent/`](evidence/2026-11-19-2222-all-twelve-rerun/agent/); the fourth is a build error); the agent's edit is judged by Kane's next walk (`src/agent/fix-loop.mjs`). No person in between. |
 
 ## Judging criteria
 
 | Criterion (quoted) | Where Upkeep meets it |
 |---|---|
-| **Ships.** "A real flow that runs end to end. Not slides." | `upkeep run` produced the branches and commits recorded in `evidence/*/ledger.ndjson`: an app on 2018–2022 packages moved to React 19 and Vite 8 in one command. |
+| **Ships.** "A real flow that runs end to end. Not slides." | `upkeep run` produced the branches and commits recorded in `evidence/*/ledger.ndjson`: an app on 2018–2022 packages moved to React 19 and Vite 8 in one command, and someone else's Create React App app moved from React 16 to 19. |
 | **Verified.** "Kane CLI caught or confirmed something meaningful." | Breaks from real upstream releases, not planted bugs: the shop is ordinary code written against old versions. Three times the build and bundler said yes and Kane said no. |
 | **Closed loop.** "Kane's result feeds back to the agent. Tighter is better." | Kane's verdict decides three things with no person involved: which set of upgrades to try next (the search), what the agent is told, and whether the result is committed or thrown away. |
-| **Craft.** "Would a developer want to install this tonight?" | No dependencies, no config for Vite, Next and Astro, a credit budget, quick checks while searching, a guard against an agent that edits the tests, a report you can paste into a pull request. |
+| **Craft.** "Would a developer want to install this tonight?" | No dependencies, no config for Vite or Create React App apps (both run for real), a credit budget, quick checks while searching, a guard against an agent that edits the tests, a report you can paste into a pull request. |
 
 ## Sponsor integration: what Kane CLI does here
 
@@ -155,7 +173,8 @@ what the test named in that row checks; `npm test` runs them all.
 | Plans upgrades from `npm outdated`, keeps each range style, labels a jump breaking by the caret rule | `src/plan/outdated.mjs:40` | `test/outdated.test.mjs` |
 | Moves upgrades that need each other as one unit, from the peer ranges of installed and target versions | `src/plan/peer-links.mjs:28` | `test/peer-links.test.mjs`; `upkeep plan` prints each reason |
 | Narrows a failing set of upgrades by delta debugging until taking out any one makes it pass, including pairs that only break together | `src/isolate/ddmin.mjs:20` | `test/ddmin.test.mjs` |
-| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:59` | `test/staged-check.test.mjs` |
+| Every check is install, then build, then boot, then Kane CLI; it stops at the first failure so a broken build costs no credits | `src/check/staged-check.mjs:99` | `test/staged-check.test.mjs` |
+| An npm peer conflict that names none of the packages being upgraded is reported as already in the project, not blamed on them | `src/check/staged-check.mjs:116` | `test/staged-check.test.mjs`, against real npm output; `evidence/2026-11-24-1604-third-party-conflict-caught/report.md` |
 | Runs the flows with `kane-cli testrun run --agent --headless` | `src/kane/run-suite.mjs:45` | `test/run-suite.test.mjs`; every check in `evidence/*/ledger.ndjson` |
 | A flow Kane could not run (runner crash, no browser) is never read as a broken app, even though Kane exits 1 for both | `src/kane/read-suite-stream.mjs:122` | `test/read-suite-stream.test.mjs`, against a real capture of a runner crash |
 | Refuses to start from flows that verify nothing, and reports steps Kane healed, using Kane's own policy engine (`kane-cli evidence verdict --policy`) | `src/kane/judge-pack.mjs:66` | `test/judge-pack.test.mjs`, `test/upgrade-run.test.mjs` |
@@ -168,7 +187,7 @@ what the test named in that row checks; `npm test` runs them all.
 | `upkeep mcp` serves the same loop as tools over the Model Context Protocol, with no dependencies | `src/mcp/server.mjs:142` | `test/mcp-server.test.mjs`, including a real server process on stdio |
 | An agent that edits the flows, the recordings or the versions instead of the app has that undone | `src/agent/guard-patch.mjs:133` | `test/guard-patch.test.mjs` |
 | Works in a git worktree outside the repository; the checkout is not touched | `src/workspace/worktree.mjs:62` | `test/worktree.test.mjs` |
-| Needs no configuration for Vite, Next and Astro projects: the address comes from the flows | `src/config/resolve-config.mjs:79` | `test/resolve-config.test.mjs` |
+| Needs no configuration for Vite and Create React App projects (both run for real; Next and Astro are detected, not yet run): the address comes from the flows | `src/config/resolve-config.mjs:79` | `test/resolve-config.test.mjs`; `evidence/2026-11-24-1611-third-party-all-eight/report.md` |
 | Published evidence carries no account details: packs are left out, emails and home paths removed | `src/report/export-run.mjs:77` | `test/export-run.test.mjs`; `node tools/check-claims.mjs` scans `evidence/` |
 | No dependencies | `package.json:30` | `package.json` has no `dependencies`; `node tools/check-claims.mjs` |
 | `--budget` stops new checks once the credits are spent; what landed stays on the branch | `src/run/upgrade-run.mjs:265` | `test/upgrade-run.test.mjs` |
@@ -181,6 +200,7 @@ what the test named in that row checks; `npm test` runs them all.
 | Kane verdicts in `evidence/` | Real runs, Kane CLI 0.10.6, 19 November 2026 | `evidence/*/ledger.ndjson` has each check's flows, seconds and credits |
 | The agent's fixes | Real: Claude Code, headless, one round each | `evidence/2026-11-19-2222-all-twelve-rerun/agent/` holds each task and reply |
 | The app being upgraded | A demo shop written for this project against packages released 2018–2022. Nothing in it is a planted bug; what breaks is what the new releases changed | `evidence/*/run.json` lists the packages and versions |
+| The third-party app | slikts/js-equality-game as published (MIT). Ours: three flows and `upkeep.config.json`, on a local branch. Nothing was pushed to its repository | `evidence/2026-11-24-*-third-party-*/` |
 | Unit tests of the loop, the fix loop and the check | Use stand-ins for Kane and for the agent, and say so at the top of each file | `test/land-upgrades.test.mjs`, `test/fix-loop.test.mjs`, `test/staged-check.test.mjs` |
 | Tests of `upkeep run` as a whole | A real git repository, worktree, commits, ledger and report. The plan, the check and the Kane account are stand-ins | `test/upgrade-run.test.mjs` |
 | Tests of the Kane runner | Go through a real child process against a stub binary | `test/stubs/kane-cli-stub.mjs` |
@@ -193,7 +213,10 @@ what the test named in that row checks; `npm test` runs them all.
 
 ## Not built yet
 
-- A run on someone else's open-source app. All five published runs are on the demo shop.
+- Keeping Kane's recordings between runs. They are written in Upkeep's worktree and never copied
+  back to your checkout, so a new run on an app without recordings pays for them again in its
+  first check.
+- Next and Astro. Upkeep detects them, but no real run has used them yet.
 - Package managers other than npm. pnpm, Yarn and Bun projects are not supported.
 - Monorepo workspaces as a whole. A single package in a subfolder works; upgrading across
   workspaces does not.
@@ -216,7 +239,10 @@ what the test named in that row checks; `npm test` runs them all.
 - **Kane credits are spent.** Measured on the demo shop with three flows: 6 to 9 per passing
   check, 17 to 25 for a quick failing one, 50 to 85 for a full failing one in which Kane tries to
   heal every flow. A check that fails at install or build costs nothing. The latest run of all
-  12 packages used 408. `--budget` caps a run.
+  12 packages used 408. On the third-party app passing replays cost 0, and its first check, in
+  which Kane wrote the recordings, 35 to 57. Every figure is `kane-cli balance` before and after
+  the check; over the three third-party runs they add up to the balance change within a cent.
+  `--budget` caps a run.
 - **Evidence packs stay on your machine.** They name the Kane account that made them, so Upkeep
   never commits them, and `upkeep export` leaves them out.
 

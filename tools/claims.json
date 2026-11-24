@@ -24,6 +24,12 @@
     "check": "`test/staged-check.test.mjs`"
   },
   {
+    "claim": "An npm peer conflict that names none of the packages being upgraded is reported as already in the project, not blamed on them",
+    "file": "src/check/staged-check.mjs",
+    "find": "if (changing && /code ERESOLVE/.test(install.output))",
+    "check": "`test/staged-check.test.mjs`, against real npm output; `evidence/2026-11-24-1604-third-party-conflict-caught/report.md`"
+  },
+  {
     "claim": "Runs the flows with `kane-cli testrun run --agent --headless`",
     "file": "src/kane/run-suite.mjs",
     "find": "const args = ['testrun', 'run'",
@@ -96,10 +102,10 @@
     "check": "`test/worktree.test.mjs`"
   },
   {
-    "claim": "Needs no configuration for Vite, Next and Astro projects: the address comes from the flows",
+    "claim": "Needs no configuration for Vite and Create React App projects (both run for real; Next and Astro are detected, not yet run): the address comes from the flows",
     "file": "src/config/resolve-config.mjs",
     "find": "export async function resolveConfig",
-    "check": "`test/resolve-config.test.mjs`"
+    "check": "`test/resolve-config.test.mjs`; `evidence/2026-11-24-1611-third-party-all-eight/report.md`"
   },
   {
     "claim": "Published evidence carries no account details: packs are left out, emails and home paths removed",
