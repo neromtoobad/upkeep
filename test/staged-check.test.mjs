@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stagedCheck, npmReason, buildReason } from '../src/check/staged-check.mjs';
+import { readFileSync } from 'node:fs';
+import { stagedCheck, npmReason, buildReason, conflictPackages } from '../src/check/staged-check.mjs';
 import { AddressInUse } from '../src/check/serve-app.mjs';
 
 const CONFIG = { install: 'npm install', build: 'npm run build', serve: 'npx vite preview', url: 'http://localhost:4173', port: 4173, flows: ['flows/a_test.md'], parallel: 1, readyTimeoutMs: 1000 };
@@ -172,4 +173,36 @@ test('npmReason and buildReason pull out the line that matters', () => {
   // As Vite 8 printed it on the real run.
   assert.equal(buildReason('vite v8.3.8 building for production...\nBuild failed with 1 error:\n[vite]: Rollup failed to resolve import "#minpath"'), '[vite]: Rollup failed to resolve import "#minpath"');
   assert.equal(buildReason(''), 'the build failed');
+});
+
+// Real npm output, captured on slikts/js-equality-game (MIT). Its lint config pins eslint 5
+// while react-scripts brings eslint 8; the lockfile hides that until package.json changes.
+const ALREADY_THERE = readFileSync(new URL('./fixtures/npm-eresolve-already-there.txt', import.meta.url), 'utf8');
+const CAUSED = readFileSync(new URL('./fixtures/npm-eresolve-caused-by-upgrade.txt', import.meta.url), 'utf8');
+
+test('conflictPackages names the packages a peer conflict is about, not the whole chain', () => {
+  const already = conflictPackages(ALREADY_THERE);
+  assert.deepEqual([...already.names].sort(), ['@slikts/eslint-config-prettier', 'eslint']);
+  assert.match(already.need, /peer eslint@"\^5\.16\.0" from @slikts\/eslint-config-prettier@6\.0\.3/);
+  assert.equal(already.found, 'eslint@8.28.0');
+  assert.ok(conflictPackages(CAUSED).names.has('eslint-plugin-prettier'));
+  assert.ok(conflictPackages(CAUSED).names.has('prettier'));
+});
+
+test('a peer conflict that was already in the project is "could not check", not the upgrade\'s fault', async () => {
+  const s = stages({ install: { code: 1, output: ALREADY_THERE } });
+  const verdict = await stagedCheck({ cwd: '/app', config: CONFIG, changing: ['react', 'react-dom'], stages: s });
+  assert.equal(verdict.outcome, 'error');
+  assert.equal(verdict.stage, 'install');
+  assert.match(verdict.summary, /already in the project/);
+  assert.match(verdict.summary, /--legacy-peer-deps/);
+  assert.deepEqual(s.reached, ['npm install']);
+});
+
+test('a peer conflict that names an upgraded package is that upgrade failing', async () => {
+  const s = stages({ install: { code: 1, output: CAUSED } });
+  const verdict = await stagedCheck({ cwd: '/app', config: CONFIG, changing: ['eslint-plugin-prettier', 'prettier'], stages: s });
+  assert.equal(verdict.outcome, 'fail');
+  assert.equal(verdict.stage, 'install');
+  assert.match(verdict.summary, /Found: eslint-plugin-prettier@3\.1\.4/);
 });

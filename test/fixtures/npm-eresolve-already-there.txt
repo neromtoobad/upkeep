@@ -1,0 +1,43 @@
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @slikts/eslint-config-prettier@6.0.3
+npm error Found: eslint@8.28.0
+npm error node_modules/eslint
+npm error   peer eslint@"^7.5.0 || ^8.0.0" from @babel/eslint-parser@7.19.1
+npm error   node_modules/@babel/eslint-parser
+npm error     @babel/eslint-parser@"^7.16.3" from eslint-config-react-app@7.0.1
+npm error     node_modules/eslint-config-react-app
+npm error       eslint-config-react-app@"^7.0.1" from react-scripts@5.0.1
+npm error       node_modules/react-scripts
+npm error         react-scripts@"^5.0.1" from the root project
+npm error   peer eslint@"^6.0.0 || ^7.0.0 || ^8.0.0" from @typescript-eslint/eslint-plugin@5.44.0
+npm error   node_modules/@typescript-eslint/eslint-plugin
+npm error     @typescript-eslint/eslint-plugin@"^5.5.0" from eslint-config-react-app@7.0.1
+npm error     node_modules/eslint-config-react-app
+npm error       eslint-config-react-app@"^7.0.1" from react-scripts@5.0.1
+npm error       node_modules/react-scripts
+npm error         react-scripts@"^5.0.1" from the root project
+npm error     peerOptional @typescript-eslint/eslint-plugin@"^4.0.0 || ^5.0.0" from eslint-plugin-jest@25.7.0
+npm error     node_modules/eslint-plugin-jest
+npm error       eslint-plugin-jest@"^25.3.0" from eslint-config-react-app@7.0.1
+npm error       node_modules/eslint-config-react-app
+npm error         eslint-config-react-app@"^7.0.1" from react-scripts@5.0.1
+npm error         node_modules/react-scripts
+npm error   18 more (@typescript-eslint/experimental-utils, ...)
+npm error
+npm error Could not resolve dependency:
+npm error peer eslint@"^5.16.0" from @slikts/eslint-config-prettier@6.0.3
+npm error node_modules/@slikts/eslint-config-prettier
+npm error   dev @slikts/eslint-config-prettier@"^6.0.3" from the root project
+npm error
+npm error Conflicting peer dependency: eslint@5.16.0
+npm error node_modules/eslint
+npm error   peer eslint@"^5.16.0" from @slikts/eslint-config-prettier@6.0.3
+npm error   node_modules/@slikts/eslint-config-prettier
+npm error     dev @slikts/eslint-config-prettier@"^6.0.3" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry this command with --force or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:

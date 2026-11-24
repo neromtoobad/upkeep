@@ -1,0 +1,24 @@
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: js-equality-game@1.1.1
+npm error Found: eslint-plugin-prettier@3.1.4
+npm error node_modules/eslint-plugin-prettier
+npm error   dev eslint-plugin-prettier@"^5.5.7" from the root project
+npm error   peer eslint-plugin-prettier@"^3.1.0" from @slikts/eslint-config-prettier@6.0.3
+npm error   node_modules/@slikts/eslint-config-prettier
+npm error     dev @slikts/eslint-config-prettier@"^6.0.3" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error dev eslint-plugin-prettier@"^5.5.7" from the root project
+npm error
+npm error Conflicting peer dependency: prettier@3.10.1
+npm error node_modules/prettier
+npm error   peer prettier@">=3.0.0" from eslint-plugin-prettier@5.5.7
+npm error   node_modules/eslint-plugin-prettier
+npm error     dev eslint-plugin-prettier@"^5.5.7" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry this command with --force or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:

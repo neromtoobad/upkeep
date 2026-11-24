@@ -273,7 +273,8 @@ export async function upgradeRun({ projectDir, options = {}, say = (line) => pro
     }
     const stagesSeen = [];
     const recordings = await keepRecordings(work.projectDir, config.flows, join(runDir, 'recordings-before-check'));
-    const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, onStage: ({ stage }) => stagesSeen.push(stage) });
+    const changing = units.flatMap((unit) => (unit.packages ?? []).map((pkg) => pkg.name));
+    const verdict = await runStagedCheck({ cwd: work.projectDir, config, heal: speed === 'full', upTo, changing, onStage: ({ stage }) => stagesSeen.push(stage) });
     // True when the failing check had rewritten the recordings and they were put back.
     const recordingsRestored = verdict.outcome !== 'pass' || verdict.partial ? await recordings.restore() : false;
     // Stopped by the person mid-check: whatever came back says nothing about the upgrade.

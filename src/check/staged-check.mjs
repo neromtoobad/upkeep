@@ -31,6 +31,44 @@ export function npmReason(output) {
   return [coded, first].filter(Boolean).join(' · ') || 'npm install failed';
 }
 
+const packageName = (spec) => /^((?:@[^/\s]+\/)?[^@\s]+)@/.exec(spec.trim())?.[1];
+
+/**
+ * The packages an npm peer conflict (ERESOLVE) is about: the one being resolved,
+ * the version found, the dependency that could not be met and who asked for it.
+ * The long "Found:" chain of who-depends-on-whom is left out; it names half the tree.
+ * @returns {{names: Set<string>, need: string|null, found: string|null}}
+ */
+export function conflictPackages(output) {
+  const lines = output.split('\n').map((line) => line.replace(/^npm (error|ERR!)\s?/, '').trim());
+  const names = new Set();
+  let need = null;
+  let found = null;
+  const add = (spec) => {
+    const name = spec && packageName(spec);
+    if (name) names.add(name);
+  };
+  lines.forEach((line, index) => {
+    let match;
+    if ((match = /^While resolving: (\S+)/.exec(line))) add(match[1]);
+    if ((match = /^Found: (\S+)/.exec(line))) {
+      add(match[1]);
+      found ??= match[1];
+    }
+    if ((match = /^Conflicting peer dependency: (\S+)/.exec(line))) add(match[1]);
+    if (/^Could not resolve dependency:?$/.test(line)) {
+      const next = lines.slice(index + 1).find(Boolean) ?? '';
+      const dependency = /^(?:(?:dev|optional|peer|peerOptional)\s+)*(\S+@"[^"]*"|\S+@\S+)\s+from\s+(.+)$/.exec(next);
+      if (dependency) {
+        add(dependency[1]);
+        if (dependency[2] !== 'the root project') add(dependency[2]);
+        need ??= next;
+      }
+    }
+  });
+  return { names, need, found };
+}
+
 /** The first line of a build failure that names an error. */
 export function buildReason(output) {
   const lines = output.split('\n').map((line) => line.trim()).filter(Boolean);
@@ -52,11 +90,13 @@ export function buildReason(output) {
  *   stop after this stage. While isolating a failure at the build, a set that
  *   builds has answered the question; walking it in the browser would be waste.
  *   A check stopped early passes only that question and is never used to land anything.
+ * @param {string[]} [input.changing] names of the packages this check upgrades. An npm peer
+ *   conflict that names none of them was already in the project, so it says nothing about them.
  * @param {object} [input.stages]      replacements for the real stage runners, for tests
  * @param {(event: object) => void} [input.onStage]
  * @returns {Promise<Verdict>}
  */
-export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', stages = {}, onStage = () => {} }) {
+export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', changing, stages = {}, onStage = () => {} }) {
   const started = Date.now();
   const run = stages.runCommand ?? runCommand;
   const serve = stages.serveApp ?? serveApp;
@@ -72,6 +112,21 @@ export async function stagedCheck({ cwd, config, heal = true, upTo = 'kane', sta
   if (install.code !== 0) {
     if (install.timedOut || NETWORK.test(install.output)) {
       return finish({ outcome: 'error', stage: 'install', summary: `npm could not install for a reason unrelated to the versions (registry, disk, permissions or a timeout): ${npmReason(install.output)}`, detail: install.output });
+    }
+    if (changing && /code ERESOLVE/.test(install.output)) {
+      const conflict = conflictPackages(install.output);
+      if (conflict.names.size > 0 && !changing.some((name) => conflict.names.has(name))) {
+        const what = [conflict.need, conflict.found && `found ${conflict.found}`].filter(Boolean).join('; ');
+        return finish({
+          outcome: 'error',
+          stage: 'install',
+          summary:
+            `npm refuses to change this project's packages at all (${what}). None of the packages being upgraded is part of that conflict: ` +
+            'it was already in the project, hidden by the lockfile. If you install this project with --legacy-peer-deps, put ' +
+            '{"install": "npm install --legacy-peer-deps --no-audit --no-fund"} in upkeep.config.json, or fix the conflict first.',
+          detail: install.output,
+        });
+      }
     }
     return finish({ outcome: 'fail', stage: 'install', summary: `install failed: ${npmReason(install.output)}`, detail: install.output });
   }
