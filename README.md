@@ -5,6 +5,8 @@
 Built at the KaneCLI Online Hackathon (TestMu AI), 12–26 November 2026. Coding agent: Claude Code.
 Verifier: [Kane CLI](https://github.com/LambdaTest/kane-cli).
 
+**Demo video (3:48):** https://youtu.be/w5OYQzIykgM
+
 **Proof.** A shop app pinned to packages released between 2018 and 2022 was 12 packages behind
 (React 17, Vite 4, react-hook-form 6, date-fns 1). One command, 33 minutes, no person involved:
 
