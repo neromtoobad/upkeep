@@ -1,0 +1,1 @@
+I changed the import in `src/orders.js:1` from the default import to the named one (`import { nanoid } from 'nanoid'`), because nanoid 6 no longer has a default export. The call `nanoid(8)` is unchanged and still produces an 8-character URL-safe order ID, so behaviour is the same for the user. I have not run the build or the flows; that happens on the Upkeep rebuild.

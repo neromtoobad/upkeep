@@ -21,7 +21,9 @@ The whole run is in [`evidence/2026-11-19-2222-all-twelve-rerun/`](evidence/2026
 the report, every check, and what Upkeep sent the agent and got back. It was made by Upkeep at
 commit `ec96636` with Kane CLI 0.10.6. An earlier run of the same upgrade on older code is in
 [`evidence/2026-11-19-2110-all-twelve/`](evidence/2026-11-19-2110-all-twelve/report.md)
-(27 checks, 557 credits).
+(27 checks, 557 credits). The run in the demo video was recorded in one take on 25 November, at
+commit `47a6256`, and came out the same way: 12 of 12, the same 4 fixed, 29 checks, 387 credits,
+33 minutes ([`evidence/2026-11-25-0812-recorded-run/`](evidence/2026-11-25-0812-recorded-run/report.md)).
 
 | `date-fns` 1 → 4: what Kane saw after the upgrade | What Kane saw after the agent's fix |
 |---|---|
